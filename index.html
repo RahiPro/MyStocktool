@@ -1,0 +1,2977 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0f1117"/>
+  <meta name="description" content="App de gestión de inventario, ventas y gastos"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <!-- WebIntoApp / Android WebView: habilitar descargas y acceso a almacenamiento -->
+  <meta name="webintoapp-download" content="enabled"/>
+  <meta name="webintoapp-permissions" content="WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE"/>
+  <meta name="webintoapp-allow-file-access" content="true"/>
+  <title>Mi Stock</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="icons/favicon.ico"/>
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
+
+  <!-- Apple / iOS -->
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Mi Stock"/>
+
+  <!-- Microsoft / Windows -->
+  <meta name="msapplication-TileImage" content="icons/icon-192.png"/>
+  <meta name="msapplication-TileColor" content="#0f1117"/>
+  <meta name="msapplication-config" content="none"/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --bg-base:       #0f1117;
+      --bg-surface:    #161b25;
+      --bg-elevated:   #1e2535;
+      --bg-hover:      #252d40;
+      --border:        rgba(255,255,255,0.07);
+      --border-mid:    rgba(255,255,255,0.12);
+      --text-primary:  #e8ecf4;
+      --text-secondary:#8892a4;
+      --text-muted:    #4d5666;
+      --accent:        #3d8ef0;
+      --accent-dim:    rgba(61,142,240,0.12);
+      --accent-glow:   rgba(61,142,240,0.25);
+      --green:         #34c77b;
+      --green-dim:     rgba(52,199,123,0.12);
+      --red:           #f0614d;
+      --red-dim:       rgba(240,97,77,0.12);
+      --amber:         #f0a53d;
+      --amber-dim:     rgba(240,165,61,0.12);
+      --purple:        #9b6dff;
+      --purple-dim:    rgba(155,109,255,0.12);
+      --radius-sm:     6px;
+      --radius-md:     10px;
+      --radius-lg:     14px;
+      --radius-xl:     18px;
+      --font:          'DM Sans', system-ui, sans-serif;
+      --font-mono:     'DM Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-base);
+      min-height: 100vh;
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── APP SHELL ── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── HEADER ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .app-logo {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), #6a5aff);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; color: #fff; flex-shrink: 0;
+    }
+    .app-header-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+    .app-header-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; font-family: var(--font-mono); }
+
+    /* ── NAV ── */
+    .nav {
+      display: flex;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .nav-btn {
+      flex: 1; padding: 10px 4px 11px;
+      border: none; background: transparent; cursor: pointer;
+      font-size: 10px; font-weight: 500; color: var(--text-muted);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      border-bottom: 2px solid transparent;
+      transition: all .2s; font-family: var(--font);
+      letter-spacing: 0.02em; text-transform: uppercase;
+    }
+    .nav-btn i { font-size: 18px; }
+    .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .nav-btn:hover:not(.active) { color: var(--text-secondary); background: var(--bg-hover); }
+
+    /* ── TOOLBAR ── */
+    .toolbar-wrap {
+      padding: 10px 14px 8px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .tbtn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 11px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid);
+      background: var(--bg-elevated);
+      color: var(--text-secondary); font-size: 12px;
+      font-family: var(--font); cursor: pointer;
+      transition: all .15s; font-weight: 500; white-space: nowrap;
+    }
+    .tbtn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: rgba(255,255,255,0.18); }
+    .tbtn i { font-size: 14px; }
+    .tbtn.save { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,142,240,0.3); }
+    .tbtn.save:hover { background: rgba(61,142,240,0.2); }
+    .tbtn.load { background: var(--green-dim); color: var(--green); border-color: rgba(52,199,123,0.3); }
+    .tbtn.load:hover { background: rgba(52,199,123,0.2); }
+    .tbtn.pdf { color: var(--red); border-color: rgba(240,97,77,0.25); }
+    .tbtn.pdf:hover { background: var(--red-dim); }
+    .tbtn.xlsx { color: var(--green); border-color: rgba(52,199,123,0.25); }
+    .tbtn.xlsx:hover { background: var(--green-dim); }
+    .tbtn.clear-sales { color: var(--amber); border-color: rgba(240,165,61,0.25); }
+    .tbtn.clear-sales:hover { background: var(--amber-dim); }
+    .tbtn.clear-all { color: var(--red); border-color: rgba(240,97,77,0.25); }
+    .tbtn.clear-all:hover { background: var(--red-dim); }
+    .tbtn.update { background: var(--purple-dim); color: var(--purple); border-color: rgba(155,109,255,0.3); }
+    .tbtn.update:hover { background: rgba(155,109,255,0.2); }
+    .divider { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+    .hint {
+      font-size: 11px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 5px; margin-top: 8px;
+      font-family: var(--font-mono);
+    }
+    .hint i { font-size: 12px; color: var(--accent); }
+
+    /* ── SCREENS ── */
+    .screen { display: none; padding: 14px; flex-direction: column; gap: 12px; }
+    .screen.active { display: flex; }
+
+    .screen-title {
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 8px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .screen-title i { font-size: 16px; color: var(--accent); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+
+    /* ── FORMS ── */
+    .form-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+    .field input {
+      font-size: 13px; padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: var(--font); width: 100%;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input::placeholder { color: var(--text-muted); }
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* ── BUTTONS ── */
+    .btn-add {
+      width: 100%; padding: 9px;
+      background: var(--accent);
+      color: #fff; border: none;
+      border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 13px; font-weight: 600; font-family: var(--font);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: opacity .15s, transform .1s;
+      letter-spacing: 0.01em;
+    }
+    .btn-add:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-add:active { transform: translateY(0); }
+
+    .btn-del {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 4px 5px;
+      border-radius: var(--radius-sm);
+      transition: all .15s; font-size: 14px;
+      display: flex; align-items: center;
+    }
+    .btn-del:hover { color: var(--red); background: var(--red-dim); }
+
+    /* ── TABLES ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      font-size: 9px; font-weight: 600; color: var(--text-muted);
+      text-align: left; padding: 7px 8px 6px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+    td {
+      padding: 9px 8px; border-bottom: 1px solid var(--border);
+      color: var(--text-primary); font-size: 12px;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-hover); }
+    .td-num { text-align: right; font-family: var(--font-mono); font-size: 12px; }
+
+    /* table inline inputs */
+    td input[type="number"] {
+      background: var(--bg-elevated); border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      font-family: var(--font-mono); font-size: 12px;
+      padding: 4px 6px; text-align: right;
+      transition: border-color .15s;
+    }
+    td input[type="number"]:focus { outline: none; border-color: var(--accent); }
+
+    /* ── METRICS ── */
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+    .metric-label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px;
+    }
+    .metric-value {
+      font-size: 20px; font-weight: 600;
+      color: var(--text-primary); font-family: var(--font-mono);
+      letter-spacing: -0.5px;
+    }
+    .metric-value.accent { color: var(--accent); }
+    .metric-value.green  { color: var(--green); }
+    .metric-value.red    { color: var(--red); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 12px; padding: 3px 10px;
+      border-radius: 99px; font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .badge-blue   { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(61,142,240,0.2); }
+    .badge-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(52,199,123,0.2); }
+    .badge-amber  { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(240,165,61,0.2); }
+
+    .empty { color: var(--text-muted); font-size: 12px; text-align: center; padding: 18px 0; }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+
+    /* ── STAT BARS ── */
+    .stat-bar-wrap {
+      margin-top: 8px;
+      background: var(--bg-elevated);
+      border-radius: 99px; height: 5px; overflow: hidden;
+    }
+    .stat-bar { height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+
+    /* ── MODAL ── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.6); z-index: 100;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-xl);
+      padding: 22px 24px; width: 290px;
+      display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+    .modal-title {
+      font-size: 14px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .modal-title i { font-size: 18px; }
+    .modal-body { font-size: 12px; color: var(--text-secondary); line-height: 1.65; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-cancel {
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid); background: transparent;
+      color: var(--text-secondary); font-size: 12px; font-family: var(--font); cursor: pointer;
+      font-weight: 500;
+    }
+    .modal-cancel:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .modal-confirm {
+      padding: 7px 14px; border-radius: var(--radius-sm); border: none;
+      font-size: 12px; font-weight: 600; font-family: var(--font); cursor: pointer; color: #fff;
+    }
+    .modal-confirm.amber { background: var(--amber); }
+    .modal-confirm.red   { background: var(--red); }
+    .modal-confirm.blue  { background: var(--accent); }
+
+    /* ── EDIT MODAL ── */
+    #edit-modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.65); z-index: 110;
+      align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #edit-modal-bg.open { display: flex; }
+    #edit-gasto-modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.65); z-index: 110;
+      align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #edit-gasto-modal-bg.open { display: flex; }
+    #edit-modal, #edit-gasto-modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      padding: 20px 20px 32px;
+      width: 100%; max-width: 480px;
+      display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 -12px 50px rgba(0,0,0,.5);
+      animation: slideUp .22s cubic-bezier(.4,0,.2,1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .edit-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .edit-modal-title {
+      font-size: 14px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .edit-modal-title i { font-size: 17px; color: var(--amber); }
+    .edit-modal-close {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 20px; cursor: pointer; line-height: 1; padding: 2px 6px;
+      border-radius: var(--radius-sm); transition: all .15s;
+    }
+    .edit-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .edit-modal-prod-name {
+      font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);
+      background: var(--bg-elevated); border-radius: var(--radius-sm);
+      padding: 5px 10px; border: 1px solid var(--border);
+    }
+    .edit-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .edit-btn-cancel {
+      flex: 1; padding: 9px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid); background: transparent;
+      color: var(--text-secondary); font-size: 13px; font-family: var(--font);
+      cursor: pointer; font-weight: 500; transition: all .15s;
+    }
+    .edit-btn-cancel:hover { background: var(--bg-hover); }
+    .edit-btn-save {
+      flex: 2; padding: 9px; border-radius: var(--radius-sm); border: none;
+      background: var(--amber); color: #fff;
+      font-size: 13px; font-weight: 600; font-family: var(--font);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: opacity .15s;
+    }
+    .edit-btn-save:hover { opacity: .88; }
+    .btn-edit {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 4px 5px;
+      border-radius: var(--radius-sm);
+      transition: all .15s; font-size: 14px;
+      display: flex; align-items: center;
+    }
+    .btn-edit:hover { color: var(--amber); background: var(--amber-dim); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 18px; left: 50%;
+      transform: translateX(-50%) translateY(70px);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-md);
+      padding: 10px 18px; font-size: 13px; font-weight: 500;
+      color: var(--text-primary);
+      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+      z-index: 999; white-space: nowrap;
+      display: flex; align-items: center; gap: 7px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast i { font-size: 15px; }
+
+    /* ── PWA BANNER ── */
+    #install-banner {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-mid);
+      color: var(--text-primary); padding: 12px 16px;
+      align-items: center; gap: 12px; font-size: 13px; font-family: var(--font);
+      box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+    }
+    #install-banner.show { display: flex; }
+    #install-banner img { width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0; }
+    #install-banner .banner-text { flex: 1; line-height: 1.4; }
+    #install-banner .banner-text strong { display: block; font-size: 13px; font-weight: 600; }
+    #install-banner .banner-text span { font-size: 11px; color: var(--text-muted); }
+    #install-banner .banner-btn {
+      padding: 7px 14px; background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600;
+      cursor: pointer; flex-shrink: 0;
+    }
+    #install-banner .banner-close {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 18px; cursor: pointer; padding: 4px; line-height: 1; flex-shrink: 0;
+    }
+
+    /* ── SUMMARY ROW (stats screen) ── */
+    .summary-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .summary-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .summary-row:first-child { padding-top: 0; }
+    .summary-row-label { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── PROFIT CARD ── */
+    .profit-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .profit-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .profit-item:first-child { padding-top: 0; }
+    .profit-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .profit-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .profit-formula { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+    .profit-value-wrap { text-align: right; }
+    .profit-pct { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+
+    /* ── LICENSE OVERLAY ── */
+    /* ══ LICENSE OVERLAY — redesign ══ */
+    #license-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(61,142,240,0.12) 0%, transparent 70%),
+                  #0b0e17;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      overflow-y: auto; padding: 0 0 40px;
+      font-family: var(--font);
+    }
+    #license-overlay.visible { display: flex; }
+    #license-overlay.hidden  { display: none; }
+
+    /* Hero area */
+    .lic-hero {
+      width: 100%; max-width: 440px;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px 0;
+      text-align: center;
+    }
+    .lic-hero-logo {
+      width: 72px; height: 72px;
+      background: linear-gradient(145deg, #3d8ef0 0%, #6a5aff 100%);
+      border-radius: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; color: #fff;
+      box-shadow: 0 0 0 1px rgba(61,142,240,0.3), 0 12px 40px rgba(61,142,240,0.4);
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .lic-hero-logo::after {
+      content: '';
+      position: absolute; inset: -8px;
+      border-radius: 30px;
+      background: radial-gradient(circle, rgba(61,142,240,0.15) 0%, transparent 70%);
+    }
+    .lic-hero-title {
+      font-size: 28px; font-weight: 600; letter-spacing: -0.8px;
+      color: var(--text-primary); margin-bottom: 8px;
+    }
+    .lic-hero-title span {
+      background: linear-gradient(135deg, #3d8ef0, #9b6dff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .lic-hero-desc {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.6; margin-bottom: 32px; max-width: 300px;
+    }
+
+    /* CTA cards area */
+    .lic-cards {
+      width: 100%; max-width: 440px;
+      padding: 0 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* DEMO card — primary / hero */
+    .lic-demo-card {
+      background: linear-gradient(145deg, #1a2340 0%, #141c30 100%);
+      border: 1px solid rgba(61,142,240,0.28);
+      border-radius: 18px;
+      padding: 22px 20px 20px;
+      position: relative; overflow: hidden;
+      cursor: pointer;
+      transition: transform .18s, box-shadow .18s;
+    }
+    .lic-demo-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(61,142,240,0.6), transparent);
+    }
+    .lic-demo-card:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(61,142,240,0.2); }
+    .lic-demo-card:active { transform: translateY(0); }
+
+    .lic-demo-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(61,142,240,0.18); border: 1px solid rgba(61,142,240,0.35);
+      color: var(--accent); font-size: 10px; font-weight: 700;
+      padding: 3px 10px; border-radius: 99px; letter-spacing: 0.08em;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .lic-demo-badge i { font-size: 11px; }
+
+    .lic-demo-title {
+      font-size: 18px; font-weight: 600; letter-spacing: -0.4px;
+      color: var(--text-primary); margin-bottom: 6px;
+    }
+    .lic-demo-subtitle {
+      font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;
+    }
+    .lic-demo-features {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 7px; margin-bottom: 18px;
+    }
+    .lic-demo-feat {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .lic-demo-feat i { color: var(--green); font-size: 14px; flex-shrink: 0; }
+    .lic-demo-feat.disabled i { color: var(--text-muted); }
+    .lic-demo-feat.disabled { color: var(--text-muted); text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.15); }
+
+    .lic-demo-limit {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(61,142,240,0.08); border: 1px solid rgba(61,142,240,0.18);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
+    }
+    .lic-demo-limit i { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+    .lic-demo-limit-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+    .lic-demo-limit-text strong { color: var(--text-primary); display: block; font-size: 13px; margin-bottom: 1px; }
+
+    .lic-demo-btn {
+      width: 100%; padding: 13px;
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 10px; cursor: pointer;
+      font-size: 15px; font-weight: 600; font-family: var(--font);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity .15s, transform .1s;
+      box-shadow: 0 4px 20px rgba(61,142,240,0.45);
+    }
+    .lic-demo-btn:hover { opacity: .9; }
+    .lic-demo-btn i { font-size: 17px; }
+
+    /* DIVIDER */
+    .lic-divider {
+      display: flex; align-items: center; gap: 12px;
+      padding: 4px 4px;
+    }
+    .lic-divider::before, .lic-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .lic-divider span { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+    /* LICENSE card — secondary */
+    .lic-license-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .lic-license-header {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .lic-license-icon {
+      width: 36px; height: 36px;
+      background: var(--bg-elevated); border: 1px solid var(--border-mid);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; color: var(--amber); flex-shrink: 0;
+    }
+    .lic-license-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .lic-license-sublabel { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+    /* Device ID row */
+    .lic-device-row {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .lic-device-info { flex: 1; min-width: 0; }
+    .lic-device-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 3px; }
+    .lic-device-id { font-family: var(--font-mono); font-size: 12px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lic-copy-btn {
+      flex-shrink: 0;
+      background: var(--accent-dim); color: var(--accent);
+      border: 1px solid rgba(61,142,240,0.3); border-radius: var(--radius-sm);
+      font-size: 11px; font-weight: 600; font-family: var(--font);
+      padding: 5px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+      transition: all .15s; white-space: nowrap;
+    }
+    .lic-copy-btn:hover { background: rgba(61,142,240,0.22); }
+
+    .lic-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+    .lic-input {
+      font-size: 13px; padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: var(--font-mono); width: 100%;
+      transition: border-color .15s, box-shadow .15s; letter-spacing: 0.04em;
+    }
+    .lic-input::placeholder { color: var(--text-muted); letter-spacing: 0; font-family: var(--font); font-size: 12px; }
+    .lic-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+    .lic-error {
+      font-size: 12px; color: var(--red);
+      background: var(--red-dim); border: 1px solid rgba(240,97,77,0.25);
+      border-radius: var(--radius-sm); padding: 9px 12px;
+      display: none; align-items: center; gap: 7px;
+    }
+    .lic-error.show { display: flex; }
+    .lic-success-row {
+      font-size: 12px; color: var(--green);
+      background: var(--green-dim); border: 1px solid rgba(52,199,123,0.25);
+      border-radius: var(--radius-sm); padding: 9px 12px;
+      display: none; align-items: center; gap: 7px;
+    }
+    .lic-success-row.show { display: flex; }
+
+    .lic-btn {
+      width: 100%; padding: 11px;
+      background: var(--bg-elevated); color: var(--text-primary);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 13px; font-weight: 600; font-family: var(--font);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .15s;
+    }
+    .lic-btn:hover { background: var(--bg-hover); border-color: rgba(255,255,255,0.18); }
+
+    /* WhatsApp button */
+    .lic-wa-card {
+      background: rgba(37,211,102,0.07);
+      border: 1px solid rgba(37,211,102,0.22);
+      border-radius: 14px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none; transition: all .18s;
+    }
+    .lic-wa-card:hover { background: rgba(37,211,102,0.12); transform: translateY(-1px); }
+    .lic-wa-icon {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: #25d366; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: #fff;
+      box-shadow: 0 4px 14px rgba(37,211,102,0.4);
+    }
+    .lic-wa-info { flex: 1; }
+    .lic-wa-title { font-size: 13px; font-weight: 600; color: #25d366; }
+    .lic-wa-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .lic-wa-arrow { font-size: 16px; color: rgba(37,211,102,0.5); }
+
+    /* Footer note */
+    .lic-footer-note {
+      font-size: 11px; color: var(--text-muted);
+      text-align: center; padding: 4px 16px; line-height: 1.6;
+    }
+
+    /* ── DEMO BANNER (top strip) ── */
+    #demo-banner {
+      display: none;
+      background: linear-gradient(90deg, rgba(61,142,240,0.1) 0%, rgba(155,109,255,0.08) 100%);
+      border-bottom: 1px solid rgba(61,142,240,0.2);
+      padding: 7px 14px;
+      align-items: center; gap: 8px; font-size: 12px;
+      color: var(--text-secondary); font-weight: 500;
+    }
+    #demo-banner.show { display: flex; }
+    #demo-banner i { font-size: 14px; color: var(--accent); flex-shrink: 0; }
+    #demo-banner .demo-banner-text { flex: 1; }
+    #demo-banner .demo-banner-count { color: var(--accent); font-weight: 600; }
+    .demo-wa-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #25d366; color: #fff;
+      border: none; border-radius: 99px;
+      font-size: 11px; font-weight: 700; font-family: var(--font);
+      padding: 5px 12px; cursor: pointer; flex-shrink: 0;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .demo-wa-btn:hover { opacity: .88; }
+    .demo-wa-btn i { font-size: 13px; }
+
+    /* ── DEMO UPSELL MODAL ── */
+    #demo-modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.75); z-index: 200;
+      align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #demo-modal-bg.open { display: flex; }
+    #demo-modal {
+      background: var(--bg-surface);
+      border: 1px solid rgba(61,142,240,0.2);
+      border-top: 1px solid rgba(61,142,240,0.3);
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 36px;
+      width: 100%; max-width: 480px;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 -20px 60px rgba(0,0,0,.5);
+      animation: slideUp .28s cubic-bezier(.4,0,.2,1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .demo-modal-handle {
+      width: 36px; height: 4px; border-radius: 99px;
+      background: var(--border-mid); margin: 0 auto 8px;
+    }
+    .demo-modal-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #f0a53d, #e05a2b);
+      border-radius: 14px; margin: 0 auto 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: #fff;
+      box-shadow: 0 6px 20px rgba(240,165,61,0.4);
+    }
+    .demo-modal-title {
+      font-size: 17px; font-weight: 600; text-align: center;
+      letter-spacing: -0.3px;
+    }
+    .demo-modal-body {
+      font-size: 13px; color: var(--text-secondary);
+      text-align: center; line-height: 1.6;
+    }
+    .demo-modal-body strong { color: var(--text-primary); }
+    .demo-modal-features {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: var(--bg-elevated); border-radius: var(--radius-md);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+    }
+    .demo-feat-item {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .demo-feat-item i { color: var(--green); font-size: 13px; flex-shrink: 0; }
+    .demo-modal-device {
+      background: var(--bg-base); border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm); padding: 10px 12px;
+    }
+    .demo-modal-device-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+    .demo-modal-device-id { font-family: var(--font-mono); font-size: 11px; color: var(--accent); word-break: break-all; }
+    .demo-modal-wa-btn {
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      width: 100%; padding: 14px;
+      background: #25d366; color: #fff; border: none;
+      border-radius: 12px; cursor: pointer;
+      font-size: 15px; font-weight: 700; font-family: var(--font);
+      text-decoration: none;
+      transition: opacity .15s, transform .1s;
+      box-shadow: 0 4px 18px rgba(37,211,102,0.4);
+    }
+    .demo-modal-wa-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .demo-modal-wa-btn i { font-size: 20px; }
+    .demo-modal-lic-btn {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      width: 100%; padding: 11px;
+      background: var(--bg-elevated); color: var(--text-secondary);
+      border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13px; font-weight: 500; font-family: var(--font);
+      transition: all .15s;
+    }
+    .demo-modal-lic-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .demo-modal-close-link {
+      text-align: center; font-size: 12px; color: var(--text-muted);
+      cursor: pointer; padding: 4px; text-decoration: underline; text-underline-offset: 3px;
+    }
+    .demo-modal-close-link:hover { color: var(--text-secondary); }
+
+    /* ── SALIDA PRECIO INPUTS ── */
+    .pv-cell { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+    .pv-input {
+      background: var(--bg-elevated); border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      font-family: var(--font-mono); font-size: 11px;
+      padding: 3px 5px; text-align: right; width: 58px;
+      transition: border-color .15s;
+    }
+    .pv-input:focus { outline: none; border-color: var(--accent); }
+    .pv-input.pct-input { border-color: rgba(155,109,255,0.35); color: var(--purple); }
+    .pv-input.pct-input:focus { border-color: var(--purple); }
+    .pv-input.price-input { border-color: rgba(52,199,123,0.35); color: var(--green); }
+    .pv-input.price-input:focus { border-color: var(--green); }
+    .pv-sym { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    /* ── GASTOS RESUMEN ── */
+    .gasto-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .gasto-row:last-child { border-bottom: none; }
+    .gasto-row-label { font-size: 12px; color: var(--text-secondary); }
+    .gasto-row-val { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: var(--text-primary); }
+
+    /* ══════════════════════════════════════
+       RENDIMIENTO
+    ══════════════════════════════════════ */
+    .rend-tab-row {
+      display: flex; gap: 5px;
+    }
+    .rend-tab {
+      flex: 1; padding: 7px 4px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid); background: var(--bg-elevated);
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      font-family: var(--font); cursor: pointer; transition: all .15s;
+      text-transform: uppercase; letter-spacing: 0.04em; text-align: center;
+    }
+    .rend-tab.active {
+      background: var(--accent-dim); color: var(--accent);
+      border-color: rgba(61,142,240,0.4);
+    }
+    .rend-tab:hover:not(.active) { background: var(--bg-hover); color: var(--text-secondary); }
+
+    .rend-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rend-kpi {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .rend-kpi-label {
+      font-size: 9px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .rend-kpi-val {
+      font-size: 17px; font-weight: 700; font-family: var(--font-mono);
+      letter-spacing: -0.5px; color: var(--text-primary);
+    }
+    .rend-kpi-sub { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); }
+    .rend-kpi.c-green .rend-kpi-val { color: var(--green); }
+    .rend-kpi.c-red   .rend-kpi-val { color: var(--red); }
+    .rend-kpi.c-blue  .rend-kpi-val { color: var(--accent); }
+    .rend-kpi.c-amber .rend-kpi-val { color: var(--amber); }
+
+    .rend-section-hd {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    }
+    .rend-section-hd i { font-size: 13px; color: var(--accent); }
+
+    .rend-mini-bar-wrap {
+      background: var(--bg-base); border-radius: 99px; height: 4px; overflow: hidden; margin-top: 5px;
+    }
+    .rend-mini-bar { height: 100%; border-radius: 99px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+    .rend-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+      padding: 2px 7px; border-radius: 99px; vertical-align: middle; margin-left: 5px;
+    }
+    .rend-chip.up   { background: var(--green-dim); color: var(--green); }
+    .rend-chip.down { background: var(--red-dim);   color: var(--red); }
+    .rend-chip.flat { background: var(--amber-dim); color: var(--amber); }
+
+    .rend-notice {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px 14px;
+      display: flex; align-items: flex-start; gap: 9px;
+      font-size: 12px; color: var(--text-secondary); line-height: 1.55;
+    }
+    .rend-notice i { font-size: 15px; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+
+    .rend-corte-btn {
+      width: 100%; padding: 10px;
+      background: linear-gradient(135deg, var(--accent), #6a5aff);
+      color: #fff; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600; font-family: var(--font);
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .rend-corte-btn:hover { opacity: .88; }
+
+    .rend-history-item {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 10px 0; border-bottom: 1px solid var(--border); gap: 8px;
+    }
+    .rend-history-item:last-child { border-bottom: none; }
+    .rend-history-period { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+    .rend-history-type {
+      font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px;
+    }
+    .rend-history-val { font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
+    .rend-history-pct { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); margin-top: 2px; }
+    .rend-del-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      padding: 4px 6px; border-radius: var(--radius-sm); font-size: 13px;
+      display: inline-flex; align-items: center; transition: all .15s; flex-shrink: 0;
+    }
+    .rend-del-btn:hover { color: var(--red); background: var(--red-dim); }
+
+    /* ── GRÁFICA ── */
+    .chart-view-row {
+      display: flex; gap: 5px; margin-bottom: 12px;
+    }
+    .chart-view-btn {
+      flex: 1; padding: 6px 4px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-mid); background: var(--bg-elevated);
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      font-family: var(--font); cursor: pointer; transition: all .15s;
+      text-align: center; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .chart-view-btn.active {
+      background: rgba(155,109,255,0.15); color: var(--purple);
+      border-color: rgba(155,109,255,0.4);
+    }
+    .chart-view-btn:hover:not(.active) { background: var(--bg-hover); color: var(--text-secondary); }
+
+    .chart-legend {
+      display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .chart-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--text-secondary);
+    }
+    .chart-legend-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    #growth-canvas {
+      width: 100%; display: block; border-radius: var(--radius-sm);
+      touch-action: none;
+    }
+    .chart-tooltip {
+      position: absolute; pointer-events: none;
+      background: var(--bg-surface); border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm); padding: 8px 12px;
+      font-size: 11px; color: var(--text-primary); font-family: var(--font-mono);
+      white-space: nowrap; z-index: 10;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      display: none;
+    }
+    .chart-tooltip-title { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-family: var(--font); }
+    .chart-tooltip-row { display: flex; justify-content: space-between; gap: 12px; }
+    .chart-wrap { position: relative; }
+    .chart-empty {
+      display: flex; align-items: center; justify-content: center;
+      height: 160px; color: var(--text-muted); font-size: 12px;
+      border: 1px dashed var(--border); border-radius: var(--radius-sm);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ DEMO BANNER ══ -->
+<div id="demo-banner">
+  <i class="ti ti-test-pipe"></i>
+  <span class="demo-banner-text">Modo demo — <span class="demo-banner-count" id="demo-counter-text">1 producto de prueba</span></span>
+  <a class="demo-wa-btn" id="demo-wa-top" href="#" target="_blank" rel="noopener">
+    <i class="ti ti-brand-whatsapp"></i>Obtener licencia
+  </a>
+</div>
+
+<!-- ══ DEMO UPSELL MODAL ══ -->
+<div id="demo-modal-bg" onclick="if(event.target===this)closeDemoModal()">
+  <div id="demo-modal">
+    <div class="demo-modal-handle"></div>
+    <div class="demo-modal-icon"><i class="ti ti-lock"></i></div>
+    <div class="demo-modal-title">Límite de demo alcanzado</div>
+    <div class="demo-modal-body">
+      Has usado el <strong>producto de prueba</strong> del modo demo.<br>
+      Activa tu licencia para desbloquear todo.
+    </div>
+
+    <div class="demo-modal-features">
+      <div class="demo-feat-item"><i class="ti ti-infinity"></i>Sin límite de productos</div>
+      <div class="demo-feat-item"><i class="ti ti-file-type-pdf"></i>Exportar PDF y Excel</div>
+      <div class="demo-feat-item"><i class="ti ti-chart-bar"></i>Estadísticas completas</div>
+      <div class="demo-feat-item"><i class="ti ti-device-mobile"></i>Funciona offline</div>
+    </div>
+
+    <div class="demo-modal-device">
+      <div class="demo-modal-device-label"><i class="ti ti-fingerprint" style="margin-right:3px"></i>Tu Device ID</div>
+      <div class="demo-modal-device-id" id="demo-device-display">—</div>
+    </div>
+
+    <a class="demo-modal-wa-btn" id="demo-modal-wa-btn" href="#" target="_blank" rel="noopener">
+      <i class="ti ti-brand-whatsapp"></i>Solicitar licencia por WhatsApp
+    </a>
+    <button class="demo-modal-lic-btn" onclick="closeDemoModal(); showLicenseOverlay();">
+      <i class="ti ti-key"></i>Ya tengo clave de licencia
+    </button>
+    <div class="demo-modal-close-link" onclick="closeDemoModal()">Seguir en modo demo</div>
+  </div>
+</div>
+
+<!-- ══ LICENSE OVERLAY ══ -->
+<div id="license-overlay">
+
+  <!-- HERO -->
+  <div class="lic-hero">
+    <div class="lic-hero-logo"><i class="ti ti-package"></i></div>
+    <div class="lic-hero-title">Mi <span>Stock</span></div>
+    <div class="lic-hero-desc">Gestiona tu inventario de forma simple, rápida y sin conexión a internet.</div>
+  </div>
+
+  <div class="lic-cards">
+
+    <!-- DEMO CARD — principal -->
+    <div class="lic-demo-card" onclick="startDemo()">
+      <div class="lic-demo-badge"><i class="ti ti-bolt"></i>GRATIS · Sin registro</div>
+      <div class="lic-demo-title">Probar ahora en modo demo</div>
+      <div class="lic-demo-subtitle">Empieza a usar Mi Stock en segundos, sin necesidad de licencia.</div>
+
+      <div class="lic-demo-features">
+        <div class="lic-demo-feat"><i class="ti ti-check"></i>Gestión de stock</div>
+        <div class="lic-demo-feat"><i class="ti ti-check"></i>Entradas y salidas</div>
+        <div class="lic-demo-feat"><i class="ti ti-check"></i>Funciona offline</div>
+        <div class="lic-demo-feat"><i class="ti ti-check"></i>Sin registro</div>
+        <div class="lic-demo-feat disabled"><i class="ti ti-x"></i>Más de 1 producto</div>
+        <div class="lic-demo-feat disabled"><i class="ti ti-x"></i>Exportar PDF/Excel</div>
+      </div>
+
+      <div class="lic-demo-limit">
+        <i class="ti ti-package"></i>
+        <div class="lic-demo-limit-text">
+          <strong>1 producto de prueba</strong>
+          Activa tu licencia para usar sin límites
+        </div>
+      </div>
+
+      <button class="lic-demo-btn" onclick="event.stopPropagation();startDemo()">
+        <i class="ti ti-player-play"></i>Comenzar demo gratis
+      </button>
+    </div>
+
+    <!-- DIVIDER -->
+    <div class="lic-divider"><span>o si ya tienes licencia</span></div>
+
+    <!-- LICENSE CARD — secundaria -->
+    <div class="lic-license-card">
+      <div class="lic-license-header">
+        <div class="lic-license-icon"><i class="ti ti-key"></i></div>
+        <div>
+          <div class="lic-license-label">Activar con clave</div>
+          <div class="lic-license-sublabel">Introduce la clave que te enviamos</div>
+        </div>
+      </div>
+
+      <!-- Device ID -->
+      <div class="lic-device-row">
+        <div class="lic-device-info">
+          <div class="lic-device-label"><i class="ti ti-fingerprint" style="margin-right:3px"></i>Tu Device ID</div>
+          <div class="lic-device-id" id="lic-device-display">calculando…</div>
+        </div>
+        <button class="lic-copy-btn" onclick="copyDeviceId()">
+          <i class="ti ti-copy"></i>Copiar
+        </button>
+      </div>
+
+      <!-- Key input -->
+      <div>
+        <div class="lic-label">Clave de licencia</div>
+        <input
+          class="lic-input"
+          id="lic-key-input"
+          placeholder="MS-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          oninput="clearLicError()"
+          onkeydown="if(event.key==='Enter')activateLicense()"
+        />
+      </div>
+
+      <div class="lic-error" id="lic-error"><i class="ti ti-alert-circle"></i><span id="lic-error-msg">Licencia inválida</span></div>
+      <div class="lic-success-row" id="lic-success"><i class="ti ti-shield-check"></i><span id="lic-success-msg">¡Licencia válida!</span></div>
+
+      <button class="lic-btn" onclick="activateLicense()">
+        <i class="ti ti-shield-check"></i>Activar Mi Stock
+      </button>
+    </div>
+
+    <!-- WHATSAPP CARD -->
+    <a class="lic-wa-card" id="lic-wa-btn" href="#" target="_blank" rel="noopener">
+      <div class="lic-wa-icon"><i class="ti ti-brand-whatsapp"></i></div>
+      <div class="lic-wa-info">
+        <div class="lic-wa-title">Solicitar licencia por WhatsApp</div>
+        <div class="lic-wa-sub">Envía tu Device ID y recibe tu clave al instante</div>
+      </div>
+      <i class="ti ti-chevron-right lic-wa-arrow"></i>
+    </a>
+
+    <div class="lic-footer-note">
+      Tu Device ID identifica este dispositivo de forma única.<br>La licencia solo funciona en el dispositivo donde fue activada.
+    </div>
+
+  </div>
+</div>
+<!-- ══ END LICENSE OVERLAY ══ -->
+
+<!-- Banner PWA -->
+<div id="install-banner">
+  <img src="icons/icon-192.png" alt="Mi Stock"/>
+  <div class="banner-text">
+    <strong>Instalar Mi Stock</strong>
+    <span>Úsala offline · Sin internet · Acceso directo</span>
+  </div>
+  <button class="banner-btn" id="install-btn">Instalar</button>
+  <button class="banner-close" id="install-close" aria-label="Cerrar">✕</button>
+</div>
+
+<!-- Modal edición de gasto -->
+<div id="edit-gasto-modal-bg">
+  <div id="edit-gasto-modal">
+    <div class="edit-modal-header">
+      <div class="edit-modal-title">
+        <i class="ti ti-pencil" style="color:var(--green)" aria-hidden="true"></i>
+        <span>Editar gasto</span>
+      </div>
+      <button class="edit-modal-close" onclick="closeEditGasto()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="edit-modal-prod-name" id="edit-gasto-original"></div>
+    <div class="form-row">
+      <div class="field"><label>Concepto</label><input id="edit-gasto-concepto" placeholder="Concepto"/></div>
+      <div class="field"><label>Monto ($)</label><input id="edit-gasto-monto" type="number" min="0" step="0.01" placeholder="0.00"/></div>
+    </div>
+    <div class="edit-actions">
+      <button class="edit-btn-cancel" onclick="closeEditGasto()">Cancelar</button>
+      <button class="edit-btn-save" style="background:var(--green)" onclick="saveEditGasto()">
+        <i class="ti ti-check" aria-hidden="true"></i>Guardar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal edición de producto -->
+<div id="edit-modal-bg">
+  <div id="edit-modal">
+    <div class="edit-modal-header">
+      <div class="edit-modal-title">
+        <i class="ti ti-pencil" aria-hidden="true"></i>
+        <span>Editar producto</span>
+      </div>
+      <button class="edit-modal-close" onclick="closeEditModal()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="edit-modal-prod-name" id="edit-prod-original"></div>
+    <div class="form-row-3">
+      <div class="field"><label>Producto</label><input id="edit-producto" placeholder="Nombre"/></div>
+      <div class="field"><label>Cantidad</label><input id="edit-cantidad" type="number" min="0" step="1" placeholder="0"/></div>
+      <div class="field"><label>Costo unit. ($)</label><input id="edit-costo" type="number" min="0" step="0.01" placeholder="0.00"/></div>
+    </div>
+    <div class="edit-actions">
+      <button class="edit-btn-cancel" onclick="closeEditModal()">Cancelar</button>
+      <button class="edit-btn-save" onclick="saveEditEntrada()">
+        <i class="ti ti-check" aria-hidden="true"></i>Guardar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmación -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <div class="modal-title">
+      <i id="modal-icon" class="ti ti-alert-triangle" aria-hidden="true"></i>
+      <span id="modal-title-txt">Confirmar</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="modal-confirm" id="modal-confirm-btn" onclick="confirmAction()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="app-logo"><i class="ti ti-package" style="font-size:16px"></i></div>
+    <span class="app-header-title">Mi Stock</span>
+    <span class="app-header-sub" id="header-date"></span>
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showScreen('entrada')">
+      <i class="ti ti-package-import" aria-hidden="true"></i>Entrada
+    </button>
+    <button class="nav-btn" onclick="showScreen('salida')">
+      <i class="ti ti-package-export" aria-hidden="true"></i>Salida
+    </button>
+    <button class="nav-btn" onclick="showScreen('gastos')">
+      <i class="ti ti-receipt" aria-hidden="true"></i>Gastos
+    </button>
+    <button class="nav-btn" onclick="showScreen('estadisticas')">
+      <i class="ti ti-chart-bar" aria-hidden="true"></i>Stats
+    </button>
+    <button class="nav-btn" onclick="showScreen('rendimiento')">
+      <i class="ti ti-trending-up" aria-hidden="true"></i>Rendim.
+    </button>
+  </nav>
+
+  <!-- Toolbar -->
+  <div class="toolbar-wrap">
+    <div class="toolbar">
+      <button class="tbtn save" onclick="saveJSON()"><i class="ti ti-download" aria-hidden="true"></i>Guardar</button>
+      <button class="tbtn load" onclick="triggerLoad()"><i class="ti ti-upload" aria-hidden="true"></i>Cargar</button>
+      <button class="tbtn pdf" onclick="exportPDF()"><i class="ti ti-file-type-pdf" aria-hidden="true"></i>PDF</button>
+      <button class="tbtn xlsx" onclick="exportExcel()"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i>Excel</button>
+      <div class="divider"></div>
+      <button class="tbtn clear-sales" onclick="askClear('sales')"><i class="ti ti-eraser" aria-hidden="true"></i>Limpiar ventas</button>
+      <button class="tbtn clear-all" onclick="askClear('all')"><i class="ti ti-trash" aria-hidden="true"></i>Borrar todo</button>
+    </div>
+    <div class="hint">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      <span id="hint-text">Guarda un archivo .json y cárgalo desde cualquier dispositivo para sincronizar</span>
+    </div>
+    <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadJSON(event)"/>
+  </div>
+
+  <!-- ── ENTRADA ── -->
+  <div id="screen-entrada" class="screen active">
+    <div class="screen-title"><i class="ti ti-package-import" aria-hidden="true"></i>Entrada — Costos</div>
+    <div class="card">
+      <div class="form-row-3" style="margin-bottom:10px">
+        <div class="field"><label>Producto</label><input id="in-producto" placeholder="Nombre del producto"/></div>
+        <div class="field"><label>Cantidad</label><input id="in-cantidad" type="number" min="1" placeholder="0"/></div>
+        <div class="field"><label>Costo unit. ($)</label><input id="in-costo" type="number" min="0" step="0.01" placeholder="0.00"/></div>
+      </div>
+      <button class="btn-add" onclick="addEntrada()"><i class="ti ti-plus" aria-hidden="true"></i>Agregar producto</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Producto</th>
+            <th class="td-num">Cantidad</th>
+            <th class="td-num">Costo unit.</th>
+            <th class="td-num">Costo total</th>
+            <th></th>
+            <th></th>
+          </tr></thead>
+          <tbody id="tabla-entrada"><tr><td colspan="6" class="empty">Sin productos aún</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Total costos</div>
+        <div class="metric-value accent" id="m-total-costo">$0.00</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Productos distintos</div>
+        <div class="metric-value" id="m-num-productos">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SALIDA ── -->
+  <div id="screen-salida" class="screen">
+    <div class="screen-title"><i class="ti ti-package-export" aria-hidden="true"></i>Salida — Ventas</div>
+    <div class="card">
+      <div class="form-row">
+        <div class="field">
+          <label>% ganancia sobre costo</label>
+          <input id="pct-ganancia" type="number" min="0" step="1" placeholder="30" oninput="onGlobalPctChange()"/>
+        </div>
+        <div class="metric" style="margin:0;align-self:end">
+          <div class="metric-label">Total ventas</div>
+          <div class="metric-value green" id="m-total-ventas">$0.00</div>
+        </div>
+      </div>
+      <button class="tbtn update" style="margin-top:12px;width:100%;justify-content:center" onclick="actualizarSalida()">
+        <i class="ti ti-refresh" aria-hidden="true"></i>Actualizar datos
+      </button>
+      <div class="hint" style="margin-top:8px">
+        <i class="ti ti-info-circle" aria-hidden="true"></i>
+        <span>Edita el % o precio directamente en cada fila · El % global aplica a productos sin override</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Producto</th>
+            <th class="td-num">Stock</th>
+            <th class="td-num">Salida</th>
+            <th class="td-num">Restante</th>
+            <th class="td-num">% gan.</th>
+            <th class="td-num">P. venta</th>
+            <th class="td-num">Ventas</th>
+          </tr></thead>
+          <tbody id="tabla-salida"><tr><td colspan="7" class="empty">Agrega productos en Entrada primero</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GASTOS ── -->
+  <div id="screen-gastos" class="screen">
+    <div class="screen-title"><i class="ti ti-receipt" aria-hidden="true"></i>Gastos</div>
+
+    <div class="card">
+      <p class="section-label" style="margin-bottom:12px">Agregar gasto</p>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="field"><label>Concepto</label><input id="og-concepto" placeholder="Ej: Alquiler, publicidad…"/></div>
+        <div class="field"><label>Monto ($)</label><input id="og-monto" type="number" min="0" step="0.01" placeholder="0.00"/></div>
+      </div>
+      <button class="btn-add" onclick="addOtroGasto()"><i class="ti ti-plus" aria-hidden="true"></i>Agregar gasto</button>
+      <div class="table-wrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>Concepto</th><th class="td-num">Monto</th><th></th><th></th></tr></thead>
+          <tbody id="tabla-otros-gastos"><tr><td colspan="4" class="empty">Sin gastos adicionales</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Resumen gastos -->
+    <div class="card">
+      <p class="section-label" style="margin-bottom:12px">Resumen</p>
+      <div>
+        <div class="gasto-row"><span class="gasto-row-label">Gastos agregados</span><span class="gasto-row-val" id="gv-otros">$0.00</span></div>
+        <div class="gasto-row"><span class="gasto-row-label">Costos (Entrada)</span><span class="gasto-row-val" style="color:var(--accent)" id="gv-costos">$0.00</span></div>
+        <div class="gasto-row" style="margin-top:4px;padding-top:12px;border-top:1px solid var(--border-mid)">
+          <span style="font-size:13px;font-weight:600;color:var(--text-primary)">Gastos totales (sin costos)</span>
+          <span style="font-size:16px;font-weight:700;font-family:var(--font-mono);color:var(--red)" id="gv-total">$0.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ESTADÍSTICAS ── -->
+  <div id="screen-estadisticas" class="screen">
+    <div class="screen-title"><i class="ti ti-chart-bar" aria-hidden="true"></i>Estadísticas</div>
+
+    <div class="card">
+      <p class="section-label" style="margin-bottom:12px">Resumen financiero</p>
+      <div>
+        <div class="summary-row">
+          <span class="summary-row-label">Total ventas</span>
+          <span class="badge badge-green" id="es-ventas">$0.00</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">Total costos</span>
+          <span class="badge badge-blue" id="es-costos">$0.00</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">Total gastos</span>
+          <span class="badge badge-amber" id="es-gastos">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="section-label" style="margin-bottom:12px">Ganancias</p>
+      <div>
+        <div class="profit-item">
+          <div class="profit-header">
+            <div>
+              <div class="profit-label">Ganancia bruta</div>
+              <div class="profit-formula">Ventas − Costos</div>
+            </div>
+            <div class="profit-value-wrap">
+              <div class="metric-value" id="es-bruta" style="font-size:18px">$0.00</div>
+              <div class="profit-pct" id="es-bruta-pct">0% sobre ventas</div>
+            </div>
+          </div>
+          <div class="stat-bar-wrap"><div class="stat-bar" id="bar-bruta" style="width:0%;background:var(--accent)"></div></div>
+        </div>
+        <div class="profit-item">
+          <div class="profit-header">
+            <div>
+              <div class="profit-label">Ganancia neta</div>
+              <div class="profit-formula">Bruta − Gastos op.</div>
+            </div>
+            <div class="profit-value-wrap">
+              <div class="metric-value" id="es-neta" style="font-size:18px">$0.00</div>
+              <div class="profit-pct" id="es-neta-pct">0% sobre ventas</div>
+            </div>
+          </div>
+          <div class="stat-bar-wrap"><div class="stat-bar" id="bar-neta" style="width:0%;background:var(--green)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RENDIMIENTO ══ -->
+  <div id="screen-rendimiento" class="screen">
+    <div class="screen-title"><i class="ti ti-trending-up" aria-hidden="true"></i>Rendimiento</div>
+
+    <!-- Aviso -->
+    <div class="rend-notice">
+      <i class="ti ti-info-circle"></i>
+      <span>Los cortes capturan una <strong>foto</strong> del estado actual. Registra uno al cerrar cada período para ver la gráfica de crecimiento y comparar evolución.</span>
+    </div>
+
+    <!-- ── GRÁFICA DE CRECIMIENTO ── -->
+    <div class="card">
+      <div class="rend-section-hd"><i class="ti ti-chart-line"></i>Gráfica de crecimiento</div>
+
+      <!-- Selector de vista -->
+      <div class="chart-view-row">
+        <button class="chart-view-btn active" id="cv-dias"   onclick="setChartView('dias',this)">Días</button>
+        <button class="chart-view-btn"        id="cv-meses"  onclick="setChartView('meses',this)">Meses</button>
+        <button class="chart-view-btn"        id="cv-anios"  onclick="setChartView('anios',this)">Años</button>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="chart-legend">
+        <div class="chart-legend-item">
+          <div class="chart-legend-dot" style="background:#3d8ef0"></div>Ventas
+        </div>
+        <div class="chart-legend-item">
+          <div class="chart-legend-dot" style="background:#34c77b"></div>Neta
+        </div>
+        <div class="chart-legend-item">
+          <div class="chart-legend-dot" style="background:#f0614d"></div>Costos
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="chart-wrap">
+        <canvas id="growth-canvas" height="200"></canvas>
+        <div class="chart-empty" id="chart-empty" style="display:none">
+          <span><i class="ti ti-camera" style="margin-right:6px;opacity:.5"></i>Registra cortes para ver la gráfica</span>
+        </div>
+        <div class="chart-tooltip" id="chart-tooltip">
+          <div class="chart-tooltip-title" id="tt-title"></div>
+          <div class="chart-tooltip-row"><span style="color:#3d8ef0">Ventas</span><span id="tt-ventas"></span></div>
+          <div class="chart-tooltip-row"><span style="color:#34c77b">Neta</span><span id="tt-neta"></span></div>
+          <div class="chart-tooltip-row"><span style="color:#f0614d">Costos</span><span id="tt-costos"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROYECCIÓN ── -->
+    <div class="card" style="padding:12px 14px">
+      <div class="rend-section-hd"><i class="ti ti-calendar-stats"></i>Proyección desde datos actuales</div>
+      <div class="rend-tab-row">
+        <button class="rend-tab active" onclick="setRendPeriod('mensual',this)">Mensual</button>
+        <button class="rend-tab" onclick="setRendPeriod('semestral',this)">Semestral</button>
+        <button class="rend-tab" onclick="setRendPeriod('anual',this)">Anual</button>
+      </div>
+      <p style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin:8px 0 12px">
+        Ciclo actual × <span id="rend-multiplier">1</span>
+      </p>
+      <div class="rend-kpi-grid">
+        <div class="rend-kpi c-blue">
+          <div class="rend-kpi-label">Ventas</div>
+          <div class="rend-kpi-val" id="rk-ventas">$0.00</div>
+          <div class="rend-kpi-sub" id="rk-ventas-sub">—</div>
+        </div>
+        <div class="rend-kpi c-amber">
+          <div class="rend-kpi-label">Costos</div>
+          <div class="rend-kpi-val" id="rk-costos">$0.00</div>
+          <div class="rend-kpi-sub" id="rk-costos-sub">—</div>
+        </div>
+        <div class="rend-kpi c-green">
+          <div class="rend-kpi-label">Ganancia bruta</div>
+          <div class="rend-kpi-val" id="rk-bruta">$0.00</div>
+          <div class="rend-kpi-sub" id="rk-bruta-sub">0%</div>
+        </div>
+        <div class="rend-kpi c-green">
+          <div class="rend-kpi-label">Ganancia neta</div>
+          <div class="rend-kpi-val" id="rk-neta">$0.00</div>
+          <div class="rend-kpi-sub" id="rk-neta-sub">0%</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--text-secondary)">Margen bruto</span>
+            <span style="font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--accent)" id="rk-mb-pct">0%</span>
+          </div>
+          <div class="rend-mini-bar-wrap"><div class="rend-mini-bar" id="bar-mb" style="width:0%;background:var(--accent)"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--text-secondary)">Margen neto</span>
+            <span style="font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--green)" id="rk-mn-pct">0%</span>
+          </div>
+          <div class="rend-mini-bar-wrap"><div class="rend-mini-bar" id="bar-mn" style="width:0%;background:var(--green)"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TOP PRODUCTOS ── -->
+    <div class="card">
+      <div class="rend-section-hd"><i class="ti ti-package"></i>Top productos proyectados</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Producto</th>
+            <th class="td-num">Ventas proy.</th>
+            <th class="td-num">Margen</th>
+          </tr></thead>
+          <tbody id="rend-tabla-productos"><tr><td colspan="3" class="empty">Sin datos</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── REGISTRAR CORTE ── -->
+    <div class="card" style="padding:14px 16px">
+      <div class="rend-section-hd"><i class="ti ti-camera"></i>Registrar corte</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.55">
+        Guarda una instantánea del período actual para alimentar la gráfica y comparar después.
+      </p>
+      <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+          <input type="radio" name="corte-tipo" value="mensual" checked style="accent-color:var(--accent)"/>Mensual
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+          <input type="radio" name="corte-tipo" value="semestral" style="accent-color:var(--accent)"/>Semestral
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+          <input type="radio" name="corte-tipo" value="anual" style="accent-color:var(--accent)"/>Anual
+        </label>
+      </div>
+      <button class="rend-corte-btn" onclick="registrarCorte()">
+        <i class="ti ti-camera" aria-hidden="true"></i>Guardar corte ahora
+      </button>
+    </div>
+
+    <!-- ── HISTORIAL ── -->
+    <div class="card">
+      <div class="rend-section-hd"><i class="ti ti-history"></i>Historial de cortes</div>
+      <div id="rend-historial-list"><p class="empty">Aún no hay cortes registrados</p></div>
+    </div>
+
+  </div><!-- #screen-rendimiento -->
+
+</div><!-- .app -->
+
+<div class="toast" id="toast"><i class="ti ti-check" aria-hidden="true"></i><span id="toast-msg">Listo</span></div>
+
+<script>
+let entradas=[];
+let salidasMap={};
+let preciosMap={};   // { producto: { pct: number, precio: number } }
+let otrosGastos=[];
+let pendingAction=null;
+
+// Header date
+(function(){
+  const d=new Date();
+  document.getElementById('header-date').textContent=
+    d.toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'});
+})();
+
+/* ════════════════════════════════════════════
+   SISTEMA DE LICENCIAS — Mi Stock
+   IMPORTANTE: LICENSE_SECRET debe ser IDÉNTICO
+   al que usaste en el generador_licencias.html
+════════════════════════════════════════════ */
+const LICENSE_SECRET  = 'MI_STOCK_SECRET_2025_XK9';
+const LIC_STORAGE_KEY = 'mistock_license_v1';
+const DEVICE_ID_KEY   = 'mistock_device_id_v1';
+
+/* ── Device ID: fingerprint estable del navegador ── */
+async function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (id) return id;
+
+  // Construye un fingerprint a partir de características del navegador
+  const nav    = window.navigator;
+  const screen = window.screen;
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.textBaseline = 'top';
+  ctx.font = '14px Arial';
+  ctx.fillText('MiStock🔑', 2, 2);
+  const canvasData = canvas.toDataURL().substring(0, 60);
+
+  const raw = [
+    nav.userAgent,
+    nav.language,
+    nav.hardwareConcurrency || 0,
+    screen.colorDepth,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+    canvasData
+  ].join('||');
+
+  const hash = await sha256Lic(raw);
+  // Formato legible: XXXXXXXX-XXXX-XXXX-XXXX
+  id = [
+    hash.substring(0,8),
+    hash.substring(8,12),
+    hash.substring(12,16),
+    hash.substring(16,20)
+  ].join('-').toUpperCase();
+
+  localStorage.setItem(DEVICE_ID_KEY, id);
+  return id;
+}
+
+async function sha256Lic(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function base32EncodeLic(hexStr) {
+  const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < hexStr.length - 1; i += 2) {
+    const byte = parseInt(hexStr.substr(i, 2), 16);
+    result += CHARSET[byte >> 3];
+    result += CHARSET[byte & 0x07];
+  }
+  return result;
+}
+
+async function buildExpectedKey(deviceId, type, module, issuedAt) {
+  const payload = `${deviceId}|${type}|${module}|${issuedAt}|${LICENSE_SECRET}`;
+  const hash    = await sha256Lic(payload);
+  const encoded = base32EncodeLic(hash).substring(0, 28).toUpperCase();
+  const chunks   = encoded.match(/.{1,4}/g) || [encoded];
+  return `MS-${chunks.slice(0,7).join('-')}`;
+}
+
+/* ── Parse key ── */
+function parseKeyPrefix(key) {
+  // Key format: MS-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
+  //             MSBASIC-XXXX-... (módulo básico)
+  const parts = key.trim().toUpperCase().split('-');
+  if (parts.length < 8) return null;
+  const modPrefix = parts[0]; // MS (full) o MSBASIC
+  const module = modPrefix === 'MSFULL'  ? 'MI_STOCK_FULL'
+               : modPrefix === 'MSBASIC' ? 'MI_STOCK_BASIC'
+               : modPrefix === 'MS'      ? 'MI_STOCK_FULL'
+               : null;
+  return module;
+}
+
+/* ── Validate ── */
+async function validateLicenseKey(inputKey, deviceId) {
+  if (!inputKey.trim()) return { valid: false, reason: 'Ingresa la clave de licencia' };
+
+  // Soporte para formato extendido con pipe: CLAVE|issuedAt|type
+  const pipeParts = inputKey.trim().split('|');
+  if (pipeParts.length === 3) {
+    const [rawKey, issuedAt, type] = pipeParts;
+    let cleanKeyPipe = rawKey.trim().toUpperCase();
+    const modFromKey = parseKeyPrefix(cleanKeyPipe);
+    if (!modFromKey) return { valid: false, reason: 'Formato de clave inválido' };
+    const expected = await buildExpectedKey(deviceId, type.trim(), modFromKey, issuedAt.trim());
+    if (expected !== cleanKeyPipe) return { valid: false, reason: 'Clave incorrecta o Device ID no coincide' };
+    const days = { mensual:30, trimestral:90, semestral:180, anual:365, vitalicia:null }[type.trim()];
+    const expiresAt = days ? new Date(new Date(issuedAt).getTime() + days * 86400000).toISOString() : null;
+    if (expiresAt && new Date(expiresAt) < new Date()) return { valid: false, reason: 'Esta licencia ya venció. Solicita una nueva' };
+    return { valid: true, data: { key: cleanKeyPipe, deviceId, module: modFromKey, type: type.trim(), issuedAt: issuedAt.trim(), expiresAt } };
+  }
+
+  // Formato simple: solo la clave
+  let cleanKey = inputKey.trim().toUpperCase();
+  const module = parseKeyPrefix(cleanKey);
+  if (!module) return { valid: false, reason: 'Formato de clave inválido' };
+
+  // Verificar si ya está almacenada localmente
+  const stored = getStoredLicense();
+  if (stored && stored.key === cleanKey && stored.deviceId === deviceId) {
+    if (stored.expiresAt && new Date(stored.expiresAt) < new Date()) {
+      return { valid: false, reason: 'Tu licencia ha vencido. Contacta al administrador' };
+    }
+    return { valid: true, data: stored };
+  }
+
+  // Buscar por fuerza bruta: 5 tipos x últimos 400 días (issuedAt es YYYY-MM-DD)
+  const types = ['mensual','trimestral','semestral','anual','vitalicia'];
+  const today = new Date();
+  for (const type of types) {
+    for (let daysAgo = 0; daysAgo <= 400; daysAgo++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - daysAgo);
+      const issuedAt = d.toISOString().substring(0, 10);
+      const expected = await buildExpectedKey(deviceId, type, module, issuedAt);
+      if (expected === cleanKey) {
+        const dayCount = { mensual:30, trimestral:90, semestral:180, anual:365, vitalicia:null }[type];
+        const expiresAt = dayCount ? new Date(new Date(issuedAt).getTime() + dayCount * 86400000).toISOString() : null;
+        if (expiresAt && new Date(expiresAt) < new Date()) {
+          return { valid: false, reason: 'Esta licencia ya venció. Solicita una nueva' };
+        }
+        return { valid: true, data: { key: cleanKey, deviceId, module, type, issuedAt, expiresAt } };
+      }
+    }
+  }
+
+  return { valid: false, reason: 'Clave incorrecta o no corresponde a este dispositivo' };
+}
+
+function getStoredLicense() {
+  try { return JSON.parse(localStorage.getItem(LIC_STORAGE_KEY)); } catch { return null; }
+}
+function storeLicense(data) {
+  localStorage.setItem(LIC_STORAGE_KEY, JSON.stringify(data));
+}
+
+/* ── WhatsApp config ── */
+const WA_NUMBER = '53100949'; // sin + ni espacios
+
+function buildWALink(deviceId) {
+  const msg = encodeURIComponent(
+    `Hola! Quiero obtener una licencia para Mi Stock.\n\nMi Device ID es:\n${deviceId}\n\n¿Podría ayudarme?`
+  );
+  return `https://wa.me/${WA_NUMBER}?text=${msg}`;
+}
+
+function setWALinks(deviceId) {
+  const url = buildWALink(deviceId);
+  const els = ['demo-wa-top', 'lic-wa-btn', 'demo-modal-wa-btn'];
+  els.forEach(id => { const el = document.getElementById(id); if (el) el.href = url; });
+}
+
+/* ── Demo mode ── */
+const DEMO_KEY      = 'mistock_demo_v1';
+const DEMO_LIMIT    = 1;
+
+function isDemoMode() {
+  return localStorage.getItem(DEMO_KEY) === '1';
+}
+function startDemo() {
+  localStorage.setItem(DEMO_KEY, '1');
+  const ol = document.getElementById('license-overlay');
+  ol.classList.remove('visible');
+  ol.classList.add('hidden');
+  document.getElementById('demo-banner').classList.add('show');
+  updateDemoBanner();
+  showToast('Modo demo activo — 1 producto de prueba', 'ti-test-pipe', 'var(--amber)');
+}
+function updateDemoBanner() {
+  const used      = entradas.length;
+  const remaining = Math.max(0, DEMO_LIMIT - used);
+  const el        = document.getElementById('demo-counter-text');
+  if (el) el.textContent = remaining > 0
+    ? `${remaining} producto${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''} en demo`
+    : 'Límite demo alcanzado — activa tu licencia';
+}
+
+function openDemoModal() {
+  const deviceId = document.getElementById('lic-device-display').textContent;
+  document.getElementById('demo-device-display').textContent = deviceId;
+  document.getElementById('demo-modal-bg').classList.add('open');
+}
+function closeDemoModal() {
+  document.getElementById('demo-modal-bg').classList.remove('open');
+}
+function showLicenseOverlay() {
+  const ol = document.getElementById('license-overlay');
+  ol.classList.remove('hidden');
+  ol.classList.add('visible');
+}
+
+/* ── UI ── */
+async function initLicenseCheck() {
+  const deviceId = await getDeviceId();
+  document.getElementById('lic-device-display').textContent = deviceId;
+  setWALinks(deviceId);
+
+  // ¿Tiene licencia válida?
+  const stored = getStoredLicense();
+  if (stored && stored.deviceId === deviceId) {
+    if (!stored.expiresAt || new Date(stored.expiresAt) > new Date()) {
+      showLicenseBadge(stored);
+      return; // overlay stays display:none (default)
+    }
+  }
+
+  // ¿Está en demo?
+  if (isDemoMode()) {
+    document.getElementById('demo-banner').classList.add('show');
+    updateDemoBanner();
+    return; // overlay stays display:none (default)
+  }
+
+  // Sin licencia ni demo → mostrar overlay
+  document.getElementById('license-overlay').classList.add('visible');
+}
+
+async function activateLicense() {
+  const inputKey = document.getElementById('lic-key-input').value;
+  const deviceId = document.getElementById('lic-device-display').textContent;
+
+  const btn = document.querySelector('.lic-btn');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Verificando…'; }
+  clearLicError();
+
+  const result = await validateLicenseKey(inputKey, deviceId);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+
+  if (!result.valid) {
+    showLicError(result.reason);
+    return;
+  }
+
+  storeLicense(result.data);
+  document.getElementById('lic-success-msg').textContent =
+    '¡Activada! ' + (result.data.expiresAt
+      ? 'Vence: ' + new Date(result.data.expiresAt).toLocaleDateString('es', {day:'2-digit',month:'short',year:'numeric'})
+      : 'Licencia vitalicia');
+  document.getElementById('lic-success').classList.add('show');
+
+  setTimeout(() => {
+    const ol = document.getElementById('license-overlay');
+    ol.classList.remove('visible');
+    ol.classList.add('hidden');
+    document.getElementById('demo-banner').classList.remove('show');
+    showLicenseBadge(result.data);
+    showToast('¡Mi Stock activada correctamente!', 'ti-shield-check', 'var(--green)');
+  }, 1200);
+}
+
+function showLicError(msg) {
+  document.getElementById('lic-error-msg').textContent = msg;
+  document.getElementById('lic-error').classList.add('show');
+}
+function clearLicError() {
+  document.getElementById('lic-error').classList.remove('show');
+  document.getElementById('lic-success').classList.remove('show');
+}
+
+async function copyDeviceId() {
+  const id = document.getElementById('lic-device-display').textContent;
+  try {
+    await navigator.clipboard.writeText(id);
+    const btn = document.querySelector('.lic-copy-btn');
+    btn.innerHTML = '<i class="ti ti-check"></i>¡Copiado!';
+    setTimeout(() => { btn.innerHTML = '<i class="ti ti-copy"></i>Copiar ID'; }, 2000);
+  } catch {}
+}
+
+function showLicenseBadge(data) {
+  // Agrega el estado de licencia al header
+  const sub = document.getElementById('header-date');
+  const exp = data.expiresAt
+    ? '· Lic. vence ' + new Date(data.expiresAt).toLocaleDateString('es', {day:'2-digit',month:'short'})
+    : '· Licencia vitalicia';
+  if (sub) sub.textContent = (sub.textContent || '') + ' ' + exp;
+}
+
+window.addEventListener('load', initLicenseCheck);
+
+/* ════════════════════════════════════════════
+   FIN SISTEMA DE LICENCIAS
+════════════════════════════════════════════ */
+
+/* ---- PERSISTENCIA LOCAL ---- */
+function saveLocal(){
+  try{
+    const state={version:3,savedAt:new Date().toISOString(),entradas,salidasMap,preciosMap,otrosGastos,
+      pct:document.getElementById('pct-ganancia').value,cortes:cortes||[]};
+    localStorage.setItem('inventario_app',JSON.stringify(state));
+  }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem('inventario_app');
+    if(!raw)return;
+    const state=JSON.parse(raw);
+    if(!state.entradas)return;
+    entradas=state.entradas||[];salidasMap=state.salidasMap||{};preciosMap=state.preciosMap||{};otrosGastos=state.otrosGastos||[];
+    cortes=state.cortes||[];
+    document.getElementById('pct-ganancia').value=state.pct||'';
+    renderEntrada();renderSalida();calcGastos();renderOtrosGastos();
+    const fecha=state.savedAt?new Date(state.savedAt).toLocaleString('es',{dateStyle:'short',timeStyle:'short'}):'desconocida';
+    setHint('Datos restaurados — última sesión: '+fecha);
+  }catch(e){}
+}
+window.addEventListener('load', () => {
+  // Solo cargamos datos si la licencia ya está validada
+  // (initLicenseCheck se encarga de mostrar/ocultar el overlay)
+  loadLocal();
+});
+
+function fmt(n){return'$'+Number(n).toFixed(2)}
+
+function showToast(msg,icon,color){
+  const t=document.getElementById('toast');
+  t.querySelector('i').className='ti '+(icon||'ti-check');
+  t.querySelector('i').style.color=color||'var(--accent)';
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function setHint(txt){document.getElementById('hint-text').textContent=txt}
+
+/* ---- MODAL ---- */
+function askClear(type){
+  pendingAction=type;
+  const bg=document.getElementById('modal-bg');
+  const icon=document.getElementById('modal-icon');
+  const title=document.getElementById('modal-title-txt');
+  const body=document.getElementById('modal-body');
+  const btn=document.getElementById('modal-confirm-btn');
+  if(type==='sales'){
+    icon.className='ti ti-eraser';icon.style.color='var(--amber)';
+    title.textContent='Limpiar ventas';
+    body.textContent='Se pondrán en cero todas las cantidades de salida. Los productos y gastos se mantienen intactos.';
+    btn.textContent='Limpiar ventas';btn.className='modal-confirm amber';
+  }else{
+    icon.className='ti ti-trash';icon.style.color='var(--red)';
+    title.textContent='Borrar todo';
+    body.textContent='Se eliminarán todos los productos, ventas, gastos y el porcentaje de ganancia. Esta acción no se puede deshacer.';
+    btn.textContent='Borrar todo';btn.className='modal-confirm red';
+  }
+  bg.classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');pendingAction=null}
+function confirmAction(){
+  if(pendingAction==='sales'){
+    Object.keys(salidasMap).forEach(k=>salidasMap[k]=0);
+    renderSalida();calcGastos();saveLocal();
+    showToast('Ventas limpiadas','ti-eraser','var(--amber)');
+    setHint('Ventas puestas en cero — productos y gastos conservados');
+  }else if(pendingAction==='all'){
+    entradas=[];salidasMap={};preciosMap={};otrosGastos=[];
+    document.getElementById('pct-ganancia').value='';
+    renderEntrada();renderSalida();calcGastos();renderOtrosGastos();saveLocal();
+    showToast('Todos los datos borrados','ti-trash','var(--red)');
+    setHint('App reiniciada — puedes empezar desde cero');
+  }
+  closeModal();
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  const idx=['entrada','salida','gastos','estadisticas','rendimiento'].indexOf(id);
+  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  if(id==='salida')renderSalida();
+  if(id==='gastos')calcGastos();
+  if(id==='estadisticas')calcEstadisticas();
+  if(id==='rendimiento')calcRendimiento();
+}
+
+/* ---- GUARDAR / CARGAR ---- */
+function saveJSON(){
+  const state={version:3,savedAt:new Date().toISOString(),entradas,salidasMap,preciosMap,otrosGastos,
+    pct:document.getElementById('pct-ganancia').value,cortes:cortes||[]};
+  const jsonStr=JSON.stringify(state,null,2);
+  const fecha=new Date().toLocaleDateString('es').replace(/\//g,'-');
+  const filename='inventario_'+fecha+'.json';
+
+  /* ── Método 1: Web Share API (Android nativo, funciona en APK/WebView) ── */
+  if(navigator.share && navigator.canShare){
+    const blob=new Blob([jsonStr],{type:'application/json'});
+    const file=new File([blob],filename,{type:'application/json'});
+    if(navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:'Mi Stock — Backup',text:'Backup de inventario'})
+        .then(()=>{
+          setHint('Archivo compartido: '+filename);
+          showToast('Archivo compartido/guardado','ti-share','var(--accent)');
+        })
+        .catch(err=>{
+          if(err.name!=='AbortError') fallbackSaveJSON(jsonStr,filename);
+        });
+      return;
+    }
+  }
+
+  /* ── Método 2: data URI (compatible con muchos WebViews) ── */
+  fallbackSaveJSON(jsonStr,filename);
+}
+
+function fallbackSaveJSON(jsonStr,filename){
+  try{
+    /* Intentar con Blob URL */
+    const blob=new Blob([jsonStr],{type:'application/octet-stream'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},300);
+    setHint('Archivo guardado: '+filename);
+    showToast('Archivo .json descargado','ti-download','var(--accent)');
+  }catch(e){
+    /* ── Método 3: data URI base64 ── */
+    try{
+      const b64=btoa(unescape(encodeURIComponent(jsonStr)));
+      const a=document.createElement('a');
+      a.href='data:application/octet-stream;base64,'+b64;
+      a.download=filename;a.style.display='none';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>document.body.removeChild(a),300);
+      setHint('Archivo guardado: '+filename);
+      showToast('Archivo .json descargado','ti-download','var(--accent)');
+    }catch(e2){
+      showToast('Error al guardar archivo','ti-alert-circle','var(--red)');
+    }
+  }
+}
+
+function triggerLoad(){document.getElementById('file-input').value='';document.getElementById('file-input').click()}
+function loadJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const state=JSON.parse(e.target.result);
+      if(!state.entradas)throw new Error('inválido');
+      entradas=state.entradas||[];salidasMap=state.salidasMap||{};preciosMap=state.preciosMap||{};otrosGastos=state.otrosGastos||[];
+      cortes=state.cortes||[];
+      document.getElementById('pct-ganancia').value=state.pct||'';
+      renderEntrada();renderSalida();calcGastos();renderOtrosGastos();
+      const fecha=state.savedAt?new Date(state.savedAt).toLocaleString('es',{dateStyle:'short',timeStyle:'short'}):'desconocida';
+      setHint('Cargado: '+file.name+' — guardado el '+fecha);
+      showToast('Datos cargados correctamente','ti-upload','var(--green)');
+    }catch(err){showToast('Archivo inválido o corrupto','ti-alert-circle','var(--red)')}
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+/* ---- ENTRADA ---- */
+function addEntrada(){
+  // ── DEMO LIMIT CHECK ──
+  if (isDemoMode()) {
+    const uniqueProducts = entradas.length;
+    // Comprobar si es un producto nuevo (no existente)
+    const prod0 = document.getElementById('in-producto').value.trim();
+    const isNew = prod0 && !entradas.find(e => e.producto.toLowerCase() === prod0.toLowerCase());
+    if (isNew && uniqueProducts >= DEMO_LIMIT) {
+      openDemoModal();
+      return;
+    }
+  }
+  // ── END DEMO CHECK ──
+  const prod=document.getElementById('in-producto').value.trim();
+  const cant=parseFloat(document.getElementById('in-cantidad').value);
+  const costo=parseFloat(document.getElementById('in-costo').value);
+  if(!prod||isNaN(cant)||cant<=0||isNaN(costo)||costo<0){showToast('Completa todos los campos','ti-alert-circle','var(--red)');return}
+  const ex=entradas.find(e=>e.producto.toLowerCase()===prod.toLowerCase());
+  if(ex){ex.cantidad+=cant;ex.costoUnit=costo;}
+  else{entradas.push({producto:prod,cantidad:cant,costoUnit:costo});salidasMap[prod]=salidasMap[prod]||0;preciosMap[prod]=preciosMap[prod]||null;}
+  document.getElementById('in-producto').value='';
+  document.getElementById('in-cantidad').value='';
+  document.getElementById('in-costo').value='';
+  renderEntrada();saveLocal();
+}
+function delEntrada(idx){
+  const prod=entradas[idx].producto;
+  entradas.splice(idx,1);
+  delete salidasMap[prod];
+  delete preciosMap[prod];
+  renderEntrada();saveLocal();
+}
+function renderEntrada(){
+  const tbody=document.getElementById('tabla-entrada');
+  if(!entradas.length){tbody.innerHTML='<tr><td colspan="6" class="empty">Sin productos aún</td></tr>';}
+  else{tbody.innerHTML=entradas.map((e,i)=>`<tr>
+    <td style="font-weight:500">${e.producto}</td>
+    <td class="td-num">${e.cantidad}</td>
+    <td class="td-num">${fmt(e.costoUnit)}</td>
+    <td class="td-num" style="font-weight:600;color:var(--accent)">${fmt(e.cantidad*e.costoUnit)}</td>
+    <td><button class="btn-edit" onclick="openEditModal(${i})"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>
+    <td><button class="btn-del" onclick="delEntrada(${i})"><i class="ti ti-trash" aria-hidden="true"></i></button></td>
+  </tr>`).join('')}
+  const total=entradas.reduce((s,e)=>s+e.cantidad*e.costoUnit,0);
+  document.getElementById('m-total-costo').textContent=fmt(total);
+  document.getElementById('m-num-productos').textContent=entradas.length;
+  if (isDemoMode()) updateDemoBanner();
+}
+
+/* ---- SALIDA ---- */
+function onGlobalPctChange(){
+  // Update only products that have no custom price override
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  entradas.forEach(e=>{
+    const ov=preciosMap[e.producto];
+    if(ov && ov.precio!=null && ov.precio>0) return; // skip, has custom price
+    if(ov && ov.pct!=null) return; // skip, has custom pct
+    // no override — update the displayed inputs
+    const row=document.querySelector(`#tabla-salida tr[data-prod="${CSS.escape(e.producto)}"]`);
+    if(!row) return;
+    const precio=e.costoUnit*(1+globalPct/100);
+    const pi=row.querySelector('.pct-input');if(pi) pi.value=globalPct.toFixed(2);
+    const pri=row.querySelector('.price-input');if(pri) pri.value=precio.toFixed(2);
+    const vi=row.querySelector('.ventas-cell');
+    if(vi){const sal=salidasMap[e.producto]||0;vi.textContent=fmt(sal*precio);}
+  });
+  recalcTotalVentas();
+  saveLocal();
+}
+function getProdPrecio(e, globalPct){
+  // Returns { pct, precio } for a product. Prefers individual override, falls back to global.
+  const ov=preciosMap[e.producto];
+  if(ov && ov.precio!=null && ov.precio>0){
+    const precio=ov.precio;
+    const pct=e.costoUnit>0?((precio/e.costoUnit-1)*100):0;
+    return{pct:+pct.toFixed(2),precio};
+  }
+  const pct=(ov && ov.pct!=null)?ov.pct:globalPct;
+  const precio=e.costoUnit*(1+pct/100);
+  return{pct,precio};
+}
+function setProdPct(prod,rawVal){
+  const e=entradas.find(e=>e.producto===prod);if(!e)return;
+  const pct=Math.max(0,parseFloat(rawVal)||0);
+  const precio=e.costoUnit*(1+pct/100);
+  preciosMap[prod]={pct,precio:null}; // store pct override, clear price override
+  // update the price input in same row
+  const row=document.querySelector(`#tabla-salida tr[data-prod="${CSS.escape(prod)}"]`);
+  if(row){
+    const pi=row.querySelector('.price-input');
+    if(pi) pi.value=precio.toFixed(2);
+    const vi=row.querySelector('.ventas-cell');
+    if(vi){const sal=salidasMap[prod]||0;vi.textContent='$'+(sal*precio).toFixed(2);}
+  }
+  recalcTotalVentas();saveLocal();
+}
+function setProdPrecio(prod,rawVal){
+  const e=entradas.find(e=>e.producto===prod);if(!e)return;
+  const precio=Math.max(0,parseFloat(rawVal)||0);
+  const pct=e.costoUnit>0?((precio/e.costoUnit-1)*100):0;
+  preciosMap[prod]={pct:null,precio}; // store price override, clear pct override
+  // update pct input in same row
+  const row=document.querySelector(`#tabla-salida tr[data-prod="${CSS.escape(prod)}"]`);
+  if(row){
+    const pi=row.querySelector('.pct-input');
+    if(pi) pi.value=pct.toFixed(2);
+    const vi=row.querySelector('.ventas-cell');
+    if(vi){const sal=salidasMap[prod]||0;vi.textContent='$'+(sal*precio).toFixed(2);}
+  }
+  recalcTotalVentas();saveLocal();
+}
+function recalcTotalVentas(){
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  let tv=0;
+  entradas.forEach(e=>{
+    const sal=salidasMap[e.producto]||0;
+    const{precio}=getProdPrecio(e,globalPct);
+    tv+=sal*precio;
+  });
+  document.getElementById('m-total-ventas').textContent=fmt(tv);
+}
+function renderSalida(){
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  const tbody=document.getElementById('tabla-salida');
+  if(!entradas.length){tbody.innerHTML='<tr><td colspan="7" class="empty">Agrega productos en Entrada primero</td></tr>';document.getElementById('m-total-ventas').textContent='$0.00';return}
+  let tv=0;
+  tbody.innerHTML=entradas.map(e=>{
+    const sal=salidasMap[e.producto]||0;const rest=e.cantidad-sal;
+    const{pct,precio}=getProdPrecio(e,globalPct);
+    const ven=sal*precio;tv+=ven;
+    const col=rest<=0?'color:var(--red)':rest<e.cantidad*.2?'color:var(--amber)':'';
+    const prodEsc=e.producto.replace(/"/g,'&quot;').replace(/'/g,"\\'");
+    return`<tr data-prod="${e.producto.replace(/"/g,'&quot;')}">
+      <td style="font-weight:500">${e.producto}</td>
+      <td class="td-num">${e.cantidad}</td>
+      <td class="td-num"><input type="number" min="0" max="${e.cantidad}" value="${sal}" data-prod="${e.producto.replace(/"/g,'&quot;')}" style="width:65px" oninput="setSalida('${prodEsc}',this.value)"/></td>
+      <td class="td-num" style="font-weight:600;${col}">${rest}</td>
+      <td class="td-num">
+        <div class="pv-cell">
+          <input type="number" min="0" step="0.1" value="${pct.toFixed(2)}" class="pv-input pct-input" title="% ganancia sobre costo" oninput="setProdPct('${prodEsc}',this.value)" onblur="if(this.value==='')this.value=(parseFloat(document.getElementById('pct-ganancia').value)||0).toFixed(2)"/>
+          <span class="pv-sym">%</span>
+        </div>
+      </td>
+      <td class="td-num">
+        <div class="pv-cell">
+          <span class="pv-sym">$</span>
+          <input type="number" min="0" step="0.01" value="${precio.toFixed(2)}" class="pv-input price-input" title="Precio de venta" oninput="setProdPrecio('${prodEsc}',this.value)"/>
+        </div>
+      </td>
+      <td class="td-num ventas-cell" style="font-weight:600;color:var(--green)">${fmt(ven)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('m-total-ventas').textContent=fmt(tv);
+}
+function setSalida(prod,val){
+  const e=entradas.find(e=>e.producto===prod);if(!e)return;
+  salidasMap[prod]=Math.min(Math.max(0,parseFloat(val)||0),e.cantidad);
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  const{precio}=getProdPrecio(e,globalPct);
+  // update ventas cell in row
+  const row=document.querySelector(`#tabla-salida tr[data-prod="${CSS.escape(prod)}"]`);
+  if(row){
+    const vi=row.querySelector('.ventas-cell');
+    if(vi) vi.textContent=fmt(salidasMap[prod]*precio);
+  }
+  recalcTotalVentas();saveLocal();
+}
+function actualizarSalida(){
+  entradas.forEach(e=>{
+    const input=document.querySelector(`#tabla-salida input[data-prod="${CSS.escape(e.producto)}"]`);
+    if(input){salidasMap[e.producto]=Math.min(Math.max(0,parseFloat(input.value)||0),e.cantidad)}
+  });
+  renderSalida();calcGastos();calcEstadisticas();saveLocal();
+  showToast('Datos actualizados','ti-refresh','var(--purple)');
+}
+
+/* ---- OTROS GASTOS ---- */
+function addOtroGasto(){
+  const concepto=document.getElementById('og-concepto').value.trim();
+  const monto=parseFloat(document.getElementById('og-monto').value);
+  if(!concepto||isNaN(monto)||monto<0){showToast('Completa concepto y monto','ti-alert-circle','var(--red)');return}
+  otrosGastos.push({concepto,monto});
+  document.getElementById('og-concepto').value='';
+  document.getElementById('og-monto').value='';
+  renderOtrosGastos();calcGastos();calcEstadisticas();saveLocal();
+  showToast('Gasto agregado','ti-check','var(--green)');
+}
+function delOtroGasto(idx){otrosGastos.splice(idx,1);renderOtrosGastos();calcGastos();calcEstadisticas();saveLocal()}
+function renderOtrosGastos(){
+  const tbody=document.getElementById('tabla-otros-gastos');
+  if(!otrosGastos.length){tbody.innerHTML='<tr><td colspan="4" class="empty">Sin gastos adicionales</td></tr>';return}
+  tbody.innerHTML=otrosGastos.map((g,i)=>`<tr>
+    <td style="font-weight:500">${g.concepto}</td>
+    <td class="td-num" style="font-weight:600">${fmt(g.monto)}</td>
+    <td><button class="btn-edit" onclick="openEditGasto(${i})"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>
+    <td><button class="btn-del" onclick="delOtroGasto(${i})"><i class="ti ti-trash" aria-hidden="true"></i></button></td>
+  </tr>`).join('');
+}
+
+/* ---- GASTOS ---- */
+function calcGastos(){
+  const otros=otrosGastos.reduce((s,g)=>s+g.monto,0);
+  const costos=entradas.reduce((s,e)=>s+e.cantidad*e.costoUnit,0);
+  document.getElementById('gv-otros').textContent=fmt(otros);
+  document.getElementById('gv-costos').textContent=fmt(costos);
+  document.getElementById('gv-total').textContent=fmt(otros);
+  saveLocal();
+}
+
+/* ---- ESTADÍSTICAS ---- */
+function calcEstadisticas(){
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  const costos=entradas.reduce((s,e)=>s+e.cantidad*e.costoUnit,0);
+  let ventas=0;entradas.forEach(e=>{const s=salidasMap[e.producto]||0;const{precio}=getProdPrecio(e,globalPct);ventas+=s*precio});
+  const otros=otrosGastos.reduce((s,g)=>s+g.monto,0);
+  const bruta=ventas-costos;const neta=bruta-otros;
+  const bPct=ventas>0?((bruta/ventas)*100).toFixed(1):0;
+  const nPct=ventas>0?((neta/ventas)*100).toFixed(1):0;
+  document.getElementById('es-ventas').textContent=fmt(ventas);
+  document.getElementById('es-costos').textContent=fmt(costos);
+  document.getElementById('es-gastos').textContent=fmt(otros);
+  const bEl=document.getElementById('es-bruta');bEl.textContent=fmt(bruta);bEl.style.color=bruta>=0?'var(--green)':'var(--red)';
+  document.getElementById('es-bruta-pct').textContent=bPct+'% sobre ventas';
+  const nEl=document.getElementById('es-neta');nEl.textContent=fmt(neta);nEl.style.color=neta>=0?'var(--green)':'var(--red)';
+  document.getElementById('es-neta-pct').textContent=nPct+'% sobre ventas';
+  document.getElementById('bar-bruta').style.width=Math.min(100,Math.max(0,bPct))+'%';
+  document.getElementById('bar-neta').style.width=Math.min(100,Math.max(0,nPct))+'%';
+}
+
+/* ---- EXPORT PDF ---- */
+/* Normaliza texto para jsPDF: convierte caracteres latinos a ASCII seguro */
+function pdfText(str){
+  if(typeof str!=='string') return String(str);
+  return str
+    .replace(/á/g,'a').replace(/Á/g,'A')
+    .replace(/é/g,'e').replace(/É/g,'E')
+    .replace(/í/g,'i').replace(/Í/g,'I')
+    .replace(/ó/g,'o').replace(/Ó/g,'O')
+    .replace(/ú/g,'u').replace(/Ú/g,'U')
+    .replace(/ü/g,'u').replace(/Ü/g,'U')
+    .replace(/ñ/g,'n').replace(/Ñ/g,'N')
+    .replace(/¿/g,'?').replace(/¡/g,'!')
+    .replace(/[^\x00-\x7F]/g,'?');
+}
+/* Aplica pdfText a todos los strings de una fila de tabla */
+function pdfRow(arr){ return arr.map(c=>typeof c==='string'?pdfText(c):c); }
+
+function getExportData(){
+  const globalPct=parseFloat(document.getElementById('pct-ganancia').value)||0;
+  const otros=otrosGastos.reduce((s,g)=>s+g.monto,0);
+  const costos=entradas.reduce((s,e)=>s+e.cantidad*e.costoUnit,0);
+  let ventas=0;
+  const salidaRows=entradas.map(e=>{const sal=salidasMap[e.producto]||0;const{pct,precio}=getProdPrecio(e,globalPct);const v=sal*precio;ventas+=v;return{producto:e.producto,stock:e.cantidad,salida:sal,restante:e.cantidad-sal,pct:+pct.toFixed(2),precioVenta:+precio.toFixed(2),ventas:+v.toFixed(2)}});
+  const bruta=ventas-costos;const neta=bruta-otros;
+  return{globalPct,otros,costos,ventas,bruta,neta,salidaRows};
+}
+
+function downloadBlob(blob, filename){
+  /* Método con Web Share API (Android APK) */
+  if(navigator.share && navigator.canShare){
+    const file=new File([blob],filename,{type:blob.type});
+    if(navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:filename}).catch(err=>{
+        if(err.name!=='AbortError') downloadBlobFallback(blob,filename);
+      });
+      return;
+    }
+  }
+  downloadBlobFallback(blob,filename);
+}
+
+function downloadBlobFallback(blob,filename){
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;a.style.display='none';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},400);
+  }catch(e){
+    /* base64 fallback */
+    const reader=new FileReader();
+    reader.onload=function(){
+      const a=document.createElement('a');
+      a.href=reader.result;a.download=filename;a.style.display='none';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>document.body.removeChild(a),400);
+    };
+    reader.readAsDataURL(blob);
+  }
+}
+
+function exportPDF(){
+  if(typeof window.jspdf==='undefined'){showToast('Libreria cargando, reintenta','ti-alert-circle','var(--red)');return}
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const d=getExportData();const fecha=new Date().toLocaleDateString('es');const blue=[61,142,240];
+  doc.setFillColor(15,17,23);doc.rect(0,0,210,22,'F');
+  doc.setTextColor(232,236,244);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text('Reporte de Inventario',14,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Generado: '+fecha,196,14,{align:'right'});
+  let y=30;
+  const sec=(t)=>{doc.setTextColor(...blue);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text(pdfText(t),14,y);y+=5};
+  sec('Entrada — Costos');
+  if(entradas.length){doc.autoTable({startY:y,margin:{left:14,right:14},
+    head:[pdfRow(['Producto','Cantidad','Costo unit.','Costo total'])],
+    body:entradas.map(e=>pdfRow([e.producto,e.cantidad,'$'+e.costoUnit.toFixed(2),'$'+(e.cantidad*e.costoUnit).toFixed(2)])),
+    foot:[pdfRow(['Total','','','$'+d.costos.toFixed(2)])],
+    headStyles:{fillColor:blue,fontSize:9},footStyles:{fillColor:[240,245,255],textColor:blue,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},theme:'striped'});y=doc.lastAutoTable.finalY+8}
+  sec('Salida — Ventas ('+d.globalPct+'% base)');
+  if(d.salidaRows.length){doc.autoTable({startY:y,margin:{left:14,right:14},
+    head:[pdfRow(['Producto','Stock','Salida','Restante','% gan.','P.Venta','Ventas'])],
+    body:d.salidaRows.map(r=>pdfRow([r.producto,r.stock,r.salida,r.restante,r.pct+'%','$'+r.precioVenta.toFixed(2),'$'+r.ventas.toFixed(2)])),
+    foot:[pdfRow(['Total','','','','','','$'+d.ventas.toFixed(2)])],
+    headStyles:{fillColor:blue,fontSize:9},footStyles:{fillColor:[240,250,240],textColor:[52,199,123],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},theme:'striped'});y=doc.lastAutoTable.finalY+8}
+  sec('Gastos');
+  const gastosBody=[...otrosGastos.map(g=>pdfRow([g.concepto,'$'+g.monto.toFixed(2)])),pdfRow(['Costos (Entrada)','$'+d.costos.toFixed(2)])];
+  doc.autoTable({startY:y,margin:{left:14,right:14},
+    head:[pdfRow(['Concepto','Monto'])],body:gastosBody,
+    foot:[pdfRow(['Total gastos','$'+(d.otros+d.costos).toFixed(2)])],
+    headStyles:{fillColor:blue,fontSize:9},footStyles:{fillColor:[255,248,235],textColor:[240,165,61],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},theme:'striped'});y=doc.lastAutoTable.finalY+8;
+  sec('Estadisticas');
+  const bP=d.ventas>0?((d.bruta/d.ventas)*100).toFixed(1):0;const nP=d.ventas>0?((d.neta/d.ventas)*100).toFixed(1):0;
+  doc.autoTable({startY:y,margin:{left:14,right:14},
+    head:[pdfRow(['Indicador','Valor','% ventas'])],
+    body:[pdfRow(['Total ventas','$'+d.ventas.toFixed(2),'—']),pdfRow(['Total costos','$'+d.costos.toFixed(2),'—']),pdfRow(['Gastos operativos','$'+d.otros.toFixed(2),'—']),pdfRow(['Ganancia bruta','$'+d.bruta.toFixed(2),bP+'%']),pdfRow(['Ganancia neta','$'+d.neta.toFixed(2),nP+'%'])],
+    headStyles:{fillColor:blue,fontSize:9},bodyStyles:{fontSize:9},theme:'striped'});
+
+  const pdfFilename='inventario_'+fecha.replace(/\//g,'-')+'.pdf';
+  const pdfBlob=doc.output('blob');
+  downloadBlob(pdfBlob,pdfFilename);
+  showToast('PDF exportado','ti-file-type-pdf','var(--red)');
+}
+
+/* ---- EXPORT EXCEL ---- */
+function exportExcel(){
+  if(typeof XLSX==='undefined'){showToast('Libreria cargando, reintenta','ti-alert-circle','var(--red)');return}
+  const d=getExportData();const fecha=new Date().toLocaleDateString('es');
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Producto','Cantidad','Costo unitario','Costo total'],...entradas.map(e=>[e.producto,e.cantidad,e.costoUnit,+(e.cantidad*e.costoUnit).toFixed(2)]),['','','TOTAL',+d.costos.toFixed(2)]]),'Entrada-Costos');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Producto','Stock','Salida','Restante','% ganancia','Precio Venta','Ventas'],...d.salidaRows.map(r=>[r.producto,r.stock,r.salida,r.restante,r.pct+'%',r.precioVenta,r.ventas]),['','','','','','TOTAL',+d.ventas.toFixed(2)]]),'Salida-Ventas');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Concepto','Monto'],...otrosGastos.map(g=>[g.concepto,g.monto]),['Costos (Entrada)',+d.costos.toFixed(2)],['TOTAL',+(d.otros+d.costos).toFixed(2)]]),'Gastos');
+  const bP=d.ventas>0?+((d.bruta/d.ventas)*100).toFixed(1):0;const nP=d.ventas>0?+((d.neta/d.ventas)*100).toFixed(1):0;
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Indicador','Valor','% ventas'],['Total ventas',+d.ventas.toFixed(2),''],['Total costos',+d.costos.toFixed(2),''],['Gastos operativos',+d.otros.toFixed(2),''],['Ganancia bruta',+d.bruta.toFixed(2),bP+'%'],['Ganancia neta',+d.neta.toFixed(2),nP+'%']]),'Estadisticas');
+
+  const xlsxFilename='inventario_'+fecha.replace(/\//g,'-')+'.xlsx';
+  /* Generar como ArrayBuffer y crear Blob con tipo MIME correcto para .xlsx */
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  downloadBlob(blob,xlsxFilename);
+  showToast('Excel exportado','ti-file-spreadsheet','var(--green)');
+}
+
+/* ---- EDITAR PRODUCTO ---- */
+let editingIdx=-1;
+function openEditModal(idx){
+  const e=entradas[idx];
+  if(!e)return;
+  editingIdx=idx;
+  document.getElementById('edit-prod-original').textContent='Editando: '+e.producto;
+  document.getElementById('edit-producto').value=e.producto;
+  document.getElementById('edit-cantidad').value=e.cantidad;
+  document.getElementById('edit-costo').value=e.costoUnit;
+  document.getElementById('edit-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('edit-producto').focus(),150);
+}
+function closeEditModal(){
+  document.getElementById('edit-modal-bg').classList.remove('open');
+  editingIdx=-1;
+}
+function saveEditEntrada(){
+  if(editingIdx===-1)return;
+  const nuevoProd=document.getElementById('edit-producto').value.trim();
+  const nuevaCant=parseFloat(document.getElementById('edit-cantidad').value);
+  const nuevoCosto=parseFloat(document.getElementById('edit-costo').value);
+  if(!nuevoProd||isNaN(nuevaCant)||nuevaCant<0||isNaN(nuevoCosto)||nuevoCosto<0){
+    showToast('Completa todos los campos correctamente','ti-alert-circle','var(--red)');return;
+  }
+  const prodOriginal=entradas[editingIdx].producto;
+  // Verificar nombre duplicado (solo si cambió)
+  if(nuevoProd.toLowerCase()!==prodOriginal.toLowerCase()){
+    const dup=entradas.findIndex((e,i)=>i!==editingIdx&&e.producto.toLowerCase()===nuevoProd.toLowerCase());
+    if(dup!==-1){showToast('Ya existe un producto con ese nombre','ti-alert-circle','var(--red)');return;}
+  }
+  // Migrar salidas si cambió el nombre
+  if(nuevoProd!==prodOriginal){
+    salidasMap[nuevoProd]=salidasMap[prodOriginal]||0;
+    delete salidasMap[prodOriginal];
+    preciosMap[nuevoProd]=preciosMap[prodOriginal]||null;
+    delete preciosMap[prodOriginal];
+  }
+  entradas[editingIdx]={producto:nuevoProd,cantidad:nuevaCant,costoUnit:nuevoCosto};
+  renderEntrada();renderSalida();calcGastos();calcEstadisticas();saveLocal();
+  showToast('Producto actualizado','ti-pencil','var(--amber)');
+  closeEditModal();
+}
+// Cerrar al tocar fuera — con delegación en document para evitar timing issues
+document.addEventListener('click',function(e){
+  if(e.target && e.target.id==='edit-modal-bg') closeEditModal();
+  if(e.target && e.target.id==='edit-gasto-modal-bg') closeEditGasto();
+});
+
+/* ---- EDITAR GASTO ---- */
+let editingGastoIdx=-1;
+function openEditGasto(idx){
+  const g=otrosGastos[idx];
+  if(!g)return;
+  editingGastoIdx=idx;
+  document.getElementById('edit-gasto-original').textContent='Editando: '+g.concepto;
+  document.getElementById('edit-gasto-concepto').value=g.concepto;
+  document.getElementById('edit-gasto-monto').value=g.monto;
+  document.getElementById('edit-gasto-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('edit-gasto-concepto').focus(),150);
+}
+function closeEditGasto(){
+  document.getElementById('edit-gasto-modal-bg').classList.remove('open');
+  editingGastoIdx=-1;
+}
+function saveEditGasto(){
+  if(editingGastoIdx===-1)return;
+  const concepto=document.getElementById('edit-gasto-concepto').value.trim();
+  const monto=parseFloat(document.getElementById('edit-gasto-monto').value);
+  if(!concepto||isNaN(monto)||monto<0){
+    showToast('Completa concepto y monto correctamente','ti-alert-circle','var(--red)');return;
+  }
+  otrosGastos[editingGastoIdx]={concepto,monto};
+  renderOtrosGastos();calcGastos();calcEstadisticas();saveLocal();
+  showToast('Gasto actualizado','ti-pencil','var(--green)');
+  closeEditGasto();
+}
+
+/* ════════════════════════════════════════════
+   RENDIMIENTO — proyección, cortes y gráfica
+════════════════════════════════════════════ */
+
+let rendPeriod  = 'mensual';
+let cortes      = [];
+let chartView   = 'dias';   // 'dias' | 'meses' | 'anios'
+
+const PERIOD_MULT = { mensual:1, semestral:6, anual:12 };
+
+/* ── Estadísticas del estado actual ── */
+function getCurrentStats(){
+  const globalPct = parseFloat(document.getElementById('pct-ganancia').value)||0;
+  const costos    = entradas.reduce((s,e)=>s+e.cantidad*e.costoUnit,0);
+  let ventas=0;
+  const prods = entradas.map(e=>{
+    const sal = salidasMap[e.producto]||0;
+    const {precio} = getProdPrecio(e,globalPct);
+    const v = sal*precio; ventas+=v;
+    const margen = v>0?((v-sal*e.costoUnit)/v*100):0;
+    return {producto:e.producto, ventas:v, margen};
+  });
+  const otros  = otrosGastos.reduce((s,g)=>s+g.monto,0);
+  const bruta  = ventas-costos;
+  const neta   = bruta-otros;
+  const mbPct  = ventas>0?(bruta/ventas*100):0;
+  const mnPct  = ventas>0?(neta/ventas*100):0;
+  return {ventas,costos,otros,bruta,neta,mbPct,mnPct,prods};
+}
+
+/* ── Selector de período de proyección ── */
+function setRendPeriod(period,btn){
+  rendPeriod=period;
+  document.querySelectorAll('.rend-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  calcRendimiento();
+}
+
+/* ── Selector de vista de gráfica ── */
+function setChartView(view,btn){
+  chartView=view;
+  document.querySelectorAll('.chart-view-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawGrowthChart();
+}
+
+/* ── Calcular y renderizar pantalla completa ── */
+function calcRendimiento(){
+  const d    = getCurrentStats();
+  const mult = PERIOD_MULT[rendPeriod]||1;
+
+  const pV = d.ventas*mult, pC = d.costos*mult;
+  const pO = d.otros*mult,  pB = d.bruta*mult, pN = d.neta*mult;
+  const mbP = pV>0?(pB/pV*100):0;
+  const mnP = pV>0?(pN/pV*100):0;
+
+  document.getElementById('rend-multiplier').textContent = mult;
+
+  document.getElementById('rk-ventas').textContent     = fmt(pV);
+  document.getElementById('rk-ventas-sub').textContent = mult>1?'×'+mult+' del ciclo actual':'Ciclo actual';
+  document.getElementById('rk-costos').textContent     = fmt(pC);
+  document.getElementById('rk-costos-sub').textContent = 'Gastos op: '+fmt(pO);
+
+  const bEl=document.getElementById('rk-bruta');
+  bEl.textContent=fmt(pB); bEl.style.color=pB>=0?'var(--green)':'var(--red)';
+  document.getElementById('rk-bruta-sub').textContent=mbP.toFixed(1)+'% de ventas';
+
+  const nEl=document.getElementById('rk-neta');
+  nEl.textContent=fmt(pN); nEl.style.color=pN>=0?'var(--green)':'var(--red)';
+  document.getElementById('rk-neta-sub').textContent=mnP.toFixed(1)+'% de ventas';
+
+  document.getElementById('rk-mb-pct').textContent=mbP.toFixed(1)+'%';
+  document.getElementById('rk-mn-pct').textContent=mnP.toFixed(1)+'%';
+  document.getElementById('bar-mb').style.width=Math.min(100,Math.max(0,mbP))+'%';
+  document.getElementById('bar-mn').style.width=Math.min(100,Math.max(0,mnP))+'%';
+
+  /* Top productos */
+  const sorted=[...d.prods].sort((a,b)=>b.ventas-a.ventas).filter(p=>p.ventas>0);
+  const tbody=document.getElementById('rend-tabla-productos');
+  if(!sorted.length){
+    tbody.innerHTML='<tr><td colspan="3" class="empty">Sin ventas registradas</td></tr>';
+  }else{
+    tbody.innerHTML=sorted.map(p=>{
+      const col=p.margen>=0?'var(--green)':'var(--red)';
+      return`<tr>
+        <td style="font-weight:500">${p.producto}</td>
+        <td class="td-num" style="font-weight:600;color:var(--accent)">${fmt(p.ventas*mult)}</td>
+        <td class="td-num" style="font-weight:600;color:${col}">${p.margen.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  drawGrowthChart();
+  renderHistorial();
+}
+
+/* ════════════════════════════════════════════
+   GRÁFICA DE CRECIMIENTO — Canvas puro
+════════════════════════════════════════════ */
+function groupCortesByView(view){
+  /* Devuelve array de puntos: {label, ventas, neta, costos} */
+  if(!cortes.length) return [];
+
+  /* Agrupar según vista */
+  const map = new Map();
+
+  cortes.forEach(c=>{
+    const d = new Date(c.fecha);
+    let key, label;
+    if(view==='dias'){
+      key   = d.toISOString().slice(0,10);
+      label = d.toLocaleDateString('es',{day:'2-digit',month:'short'});
+    } else if(view==='meses'){
+      key   = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      label = d.toLocaleDateString('es',{month:'short',year:'2-digit'});
+    } else {
+      key   = String(d.getFullYear());
+      label = key;
+    }
+    if(!map.has(key)){
+      map.set(key,{label,ventas:0,neta:0,costos:0,count:0,key});
+    }
+    const g=map.get(key);
+    /* Promediar múltiples cortes del mismo período */
+    g.ventas+=c.ventas; g.neta+=c.neta; g.costos+=c.costos; g.count++;
+  });
+
+  /* Convertir a array ordenado cronológicamente */
+  return [...map.entries()]
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([,v])=>({
+      label: v.label,
+      ventas: v.ventas/v.count,
+      neta:   v.neta/v.count,
+      costos: v.costos/v.count
+    }));
+}
+
+function drawGrowthChart(){
+  const canvas  = document.getElementById('growth-canvas');
+  const empty   = document.getElementById('chart-empty');
+  const tooltip = document.getElementById('chart-tooltip');
+  if(!canvas) return;
+
+  const points = groupCortesByView(chartView);
+
+  if(!points.length){
+    canvas.style.display='none';
+    empty.style.display='flex';
+    tooltip.style.display='none';
+    return;
+  }
+  canvas.style.display='block';
+  empty.style.display='none';
+
+  /* Dimensiones */
+  const dpr    = window.devicePixelRatio||1;
+  const W      = canvas.parentElement.clientWidth;
+  const H      = 220;
+  canvas.width  = W*dpr;
+  canvas.height = H*dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  /* Padding */
+  const PAD_L=54, PAD_R=16, PAD_T=16, PAD_B=36;
+  const cW=W-PAD_L-PAD_R;
+  const cH=H-PAD_T-PAD_B;
+
+  /* Rango Y */
+  const allVals=[...points.map(p=>p.ventas),...points.map(p=>p.neta),...points.map(p=>p.costos)];
+  const minV=Math.min(0,...allVals);
+  const maxV=Math.max(...allVals)*1.12||1;
+  const range=maxV-minV;
+
+  /* Helpers */
+  const xPos = i => PAD_L + (points.length===1 ? cW/2 : i/(points.length-1)*cW);
+  const yPos = v => PAD_T + cH - ((v-minV)/range)*cH;
+
+  /* CSS vars (colores del tema) */
+  const C_BG_EL   = '#1e2535';
+  const C_BORDER  = 'rgba(255,255,255,0.07)';
+  const C_MUTED   = '#4d5666';
+  const C_TEXT    = '#8892a4';
+  const C_VENTAS  = '#3d8ef0';
+  const C_NETA    = '#34c77b';
+  const C_COSTOS  = '#f0614d';
+
+  ctx.clearRect(0,0,W,H);
+
+  /* Grid horizontal */
+  const GRID_LINES=4;
+  ctx.strokeStyle=C_BORDER; ctx.lineWidth=1;
+  for(let i=0;i<=GRID_LINES;i++){
+    const y=PAD_T+i*(cH/GRID_LINES);
+    ctx.beginPath(); ctx.moveTo(PAD_L,y); ctx.lineTo(W-PAD_R,y); ctx.stroke();
+    /* Etiqueta Y */
+    const val=maxV-i*(range/GRID_LINES);
+    ctx.fillStyle=C_TEXT; ctx.font='9px DM Mono,monospace';
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    const label=val>=1000?'$'+(val/1000).toFixed(1)+'k':'$'+val.toFixed(0);
+    ctx.fillText(label,PAD_L-6,y);
+  }
+
+  /* Línea base cero si hay valores negativos */
+  if(minV<0){
+    const y0=yPos(0);
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(PAD_L,y0); ctx.lineTo(W-PAD_R,y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* Función para dibujar una serie */
+  function drawSeries(color,getValue,filled){
+    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    points.forEach((p,i)=>{
+      const x=xPos(i), y=yPos(getValue(p));
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    if(filled&&points.length>1){
+      /* Área rellena */
+      ctx.save();
+      const grad=ctx.createLinearGradient(0,PAD_T,0,PAD_T+cH);
+      grad.addColorStop(0,color.replace(')',',0.18)').replace('rgb','rgba'));
+      grad.addColorStop(1,color.replace(')',',0.0)').replace('rgb','rgba'));
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.moveTo(xPos(0),PAD_T+cH);
+      points.forEach((p,i)=>ctx.lineTo(xPos(i),yPos(getValue(p))));
+      ctx.lineTo(xPos(points.length-1),PAD_T+cH);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+
+    /* Puntos */
+    points.forEach((p,i)=>{
+      const x=xPos(i), y=yPos(getValue(p));
+      ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2);
+      ctx.fillStyle=C_BG_EL; ctx.fill();
+      ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+    });
+  }
+
+  /* Convertir hex a rgb para el gradiente */
+  function hexToRgb(hex){
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  /* Series (costos sin relleno, ventas y neta con) */
+  drawSeries(C_COSTOS, p=>p.costos, false);
+  drawSeries(C_VENTAS, p=>p.ventas, true);
+  drawSeries(C_NETA,   p=>p.neta,   true);
+
+  /* Etiquetas X */
+  ctx.fillStyle=C_TEXT; ctx.font='9px DM Mono,monospace'; ctx.textBaseline='top';
+  const step = points.length<=8?1:Math.ceil(points.length/8);
+  points.forEach((p,i)=>{
+    if(i%step!==0&&i!==points.length-1) return;
+    ctx.textAlign='center';
+    ctx.fillText(p.label,xPos(i),PAD_T+cH+8);
+  });
+
+  /* ── Interactividad: tooltip en hover/touch ── */
+  canvas._points=points; canvas._xPos=xPos; canvas._yPos=yPos;
+  canvas._PAD={L:PAD_L,R:PAD_R,T:PAD_T,B:PAD_B};
+}
+
+function handleChartInteraction(canvas,clientX,clientY){
+  const points=canvas._points; if(!points||!points.length) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=clientX-rect.left;
+
+  /* Encontrar punto más cercano */
+  let best=-1,bestDist=Infinity;
+  points.forEach((_,i)=>{
+    const px=canvas._xPos(i);
+    const d=Math.abs(x-px);
+    if(d<bestDist){bestDist=d;best=i;}
+  });
+  if(best===-1||bestDist>40) return;
+
+  const p=points[best];
+  const px=canvas._xPos(best);
+  const tooltip=document.getElementById('chart-tooltip');
+  const wrap=canvas.parentElement;
+
+  document.getElementById('tt-title').textContent=p.label;
+  document.getElementById('tt-ventas').textContent=fmt(p.ventas);
+  document.getElementById('tt-neta').textContent=fmt(p.neta);
+  document.getElementById('tt-costos').textContent=fmt(p.costos);
+
+  tooltip.style.display='block';
+  /* Posicionar el tooltip */
+  const tw=tooltip.offsetWidth||130;
+  let left=px-tw/2;
+  left=Math.max(4,Math.min(wrap.clientWidth-tw-4,left));
+  tooltip.style.left=left+'px';
+  tooltip.style.top=(canvas._yPos(p.ventas)-70)+'px';
+}
+
+/* Registrar eventos tras primer render */
+function attachChartEvents(){
+  const canvas=document.getElementById('growth-canvas');
+  if(!canvas||canvas._eventsAttached) return;
+  canvas._eventsAttached=true;
+
+  canvas.addEventListener('mousemove',e=>{
+    handleChartInteraction(canvas,e.clientX,e.clientY);
+  });
+  canvas.addEventListener('mouseleave',()=>{
+    document.getElementById('chart-tooltip').style.display='none';
+  });
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const t=e.touches[0];
+    handleChartInteraction(canvas,t.clientX,t.clientY);
+  },{passive:false});
+  canvas.addEventListener('touchend',()=>{
+    setTimeout(()=>{ document.getElementById('chart-tooltip').style.display='none'; },1800);
+  });
+}
+
+/* Redibujar al cambiar tamaño */
+window.addEventListener('resize',()=>{
+  if(document.getElementById('screen-rendimiento').classList.contains('active')){
+    drawGrowthChart();
+  }
+});
+
+/* ── Registrar corte ── */
+function registrarCorte(){
+  const tipo = document.querySelector('input[name="corte-tipo"]:checked')?.value||'mensual';
+  const d    = getCurrentStats();
+  if(d.ventas===0&&d.costos===0){
+    showToast('No hay datos para registrar un corte','ti-alert-circle','var(--amber)');return;
+  }
+  const now=new Date();
+  cortes.unshift({
+    id:       Date.now(),
+    tipo,
+    fecha:    now.toISOString(),
+    fechaLabel: now.toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}),
+    ventas:   d.ventas,
+    costos:   d.costos,
+    otros:    d.otros,
+    bruta:    d.bruta,
+    neta:     d.neta,
+    mbPct:    d.mbPct,
+    mnPct:    d.mnPct,
+    nProductos: entradas.length
+  });
+  saveLocal();
+  calcRendimiento();
+  showToast('Corte '+tipo+' registrado','ti-camera','var(--purple)');
+}
+
+function delCorte(id){
+  cortes=cortes.filter(c=>c.id!==id);
+  saveLocal(); calcRendimiento();
+  showToast('Corte eliminado','ti-trash','var(--red)');
+}
+
+/* ── Historial ── */
+function renderHistorial(){
+  const el=document.getElementById('rend-historial-list');
+  if(!cortes.length){el.innerHTML='<p class="empty">Aún no hay cortes registrados</p>';return;}
+
+  const tipoLabel={mensual:'Mensual',semestral:'Semestral',anual:'Anual'};
+  el.innerHTML=cortes.map((c,i)=>{
+    const netaCol=c.neta>=0?'var(--green)':'var(--red)';
+    const prev=cortes.slice(i+1).find(p=>p.tipo===c.tipo);
+    let chip='';
+    if(prev){
+      const diff=c.neta-prev.neta;
+      const diffPct=prev.neta!==0?(diff/Math.abs(prev.neta)*100):0;
+      const cls=diff>0?'up':diff<0?'down':'flat';
+      const arrow=diff>0?'↑':diff<0?'↓':'→';
+      chip=`<span class="rend-chip ${cls}">${arrow}${Math.abs(diffPct).toFixed(1)}%</span>`;
+    }
+    return`<div class="rend-history-item">
+      <div style="flex:1;min-width:0">
+        <div class="rend-history-period">${c.fechaLabel} ${chip}</div>
+        <div class="rend-history-type">${tipoLabel[c.tipo]||c.tipo} · ${c.nProductos} prod.</div>
+        <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">
+            Ventas <span style="color:var(--accent)">${fmt(c.ventas)}</span>
+          </span>
+          <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">
+            Bruta <span style="color:var(--green)">${fmt(c.bruta)}</span>
+          </span>
+          <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">
+            MB <span style="color:var(--accent)">${c.mbPct.toFixed(1)}%</span>
+          </span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <div class="rend-history-val" style="color:${netaCol}">${fmt(c.neta)}</div>
+        <div class="rend-history-pct">${c.mnPct.toFixed(1)}% neto</div>
+        <button class="rend-del-btn" onclick="delCorte(${c.id})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+
+  /* Adjuntar eventos de gráfica tras render */
+  setTimeout(attachChartEvents,50);
+}
+
+/* ---- PWA — Service Worker + Install ---- */
+(function(){
+  // ── Registro del SW ──
+  if(false && 'serviceWorker' in navigator){
+    window.addEventListener('load', async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+        console.log('[PWA] SW registrado:', reg.scope);
+
+        // Detectar actualización disponible
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+              // Hay una nueva versión — notificar al SW que tome control
+              newWorker.postMessage('SKIP_WAITING');
+              showToast('App actualizada ✓','ti-refresh','var(--accent)');
+            }
+          });
+        });
+
+        // Recargar cuando el nuevo SW tome control
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if(!refreshing){ refreshing = true; /* window.location.reload(); */ }
+        });
+
+      } catch(err){
+        console.warn('[PWA] Error SW:', err);
+      }
+    });
+  }
+
+  // ── Banner de instalación ──
+  let deferredPrompt = null;
+  const banner     = document.getElementById('install-banner');
+  const installBtn = document.getElementById('install-btn');
+  const closeBtn   = document.getElementById('install-close');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if(!localStorage.getItem('pwa_install_dismissed')){
+      setTimeout(() => banner.classList.add('show'), 1500);
+    }
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if(outcome === 'accepted'){
+      showToast('¡Mi Stock instalada!','ti-device-mobile','var(--accent)');
+    }
+    deferredPrompt = null;
+    banner.classList.remove('show');
+  });
+
+  closeBtn.addEventListener('click', () => {
+    banner.classList.remove('show');
+    localStorage.setItem('pwa_install_dismissed','1');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    banner.classList.remove('show');
+    deferredPrompt = null;
+    showToast('¡Mi Stock instalada correctamente!','ti-device-mobile','var(--accent)');
+  });
+})();
+</script>
+</body>
+</html>
